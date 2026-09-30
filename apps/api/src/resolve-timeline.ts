@@ -33,7 +33,10 @@ export function resolveTimeline(ohm: Interval[], hb: Interval[]): Period[] {
   const holes = union(ohm);
   const all: Period[] = [
     ...ohm.map((i) => ({ ...i, source: 'ohm' as const })),
-    ...hb.flatMap((i) => subtract(i, holes)).map((i) => ({ ...i, source: 'hb' as const })),
+    // pieces shorter than the merge gap are artefacts of gaps in the OHM data, not real periods
+    ...hb.flatMap((i) => subtract(i, holes))
+      .filter((i) => endOf(i.to) - i.from >= MERGE_GAP)
+      .map((i) => ({ ...i, source: 'hb' as const })),
   ];
 
   const byName = new Map<string, Period[]>();

@@ -25,8 +25,8 @@ WITH g AS (
   ON CONFLICT (name, admin_level) DO UPDATE SET name = EXCLUDED.name
   RETURNING id
 )
-INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom)
-SELECT p.id, 'ohm', $4::float8, $5::float8, keep.geom FROM p, keep`;
+INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, geom_simple)
+SELECT p.id, 'ohm', $4::float8, $5::float8, keep.geom, simplify_polygons(keep.geom) FROM p, keep`;
 
 // Transforms ohm_stage.boundaries (loaded by osm2pgsql, see db/ohm.lua) into the final tables.
 // Reloads only source='ohm', in one transaction.

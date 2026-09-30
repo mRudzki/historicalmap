@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS polity_geometries (
   CHECK (valid_to IS NULL OR valid_to > valid_from)
 );
 
+-- Simplified copy (see simplify_polygons) so /history can union states quickly.
+ALTER TABLE polity_geometries ADD COLUMN IF NOT EXISTS geom_simple geometry(MultiPolygon, 4326);
+
 CREATE INDEX IF NOT EXISTS polity_geometries_geom_idx
   ON polity_geometries USING gist (geom);
 CREATE INDEX IF NOT EXISTS polity_geometries_time_idx

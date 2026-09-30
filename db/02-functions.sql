@@ -1,5 +1,12 @@
 DROP FUNCTION IF EXISTS snapshot_for_year(integer);
 
+-- Valid, simplified (0.02 degrees) MultiPolygon; the input itself if simplification leaves nothing.
+CREATE OR REPLACE FUNCTION simplify_polygons(geom geometry) RETURNS geometry
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN ST_IsEmpty(s) THEN geom ELSE s END
+  FROM (SELECT ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_SimplifyPreserveTopology(geom, 0.02)), 3)) AS s) x
+$$;
+
 CREATE OR REPLACE FUNCTION polity_color(polity_name text) RETURNS text
 LANGUAGE sql IMMUTABLE AS $$
   SELECT CASE

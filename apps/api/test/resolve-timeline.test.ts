@@ -16,6 +16,15 @@ describe('resolveTimeline', () => {
     ]);
   });
 
+  it('drops HB slivers shorter than a year left between OHM intervals (real data, 1918)', () => {
+    const ohm = [iv('German Reich', 1890.5, 1918.86), iv('French Republic', 1918.89, 1940.48)];
+    const hb = [iv('German Empire', 1914, 1920)];
+    expect(simple(resolveTimeline(ohm, hb))).toEqual([
+      ['German Reich', 1890.5, 1918.86, 'ohm'],
+      ['French Republic', 1918.89, 1940.48, 'ohm'],
+    ]);
+  });
+
   it('keeps HB whole where OHM has no coverage', () => {
     expect(simple(resolveTimeline([], [iv('A', 1000, 1100)]))).toEqual([['A', 1000, 1100, 'hb']]);
   });

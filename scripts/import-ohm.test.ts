@@ -64,6 +64,16 @@ describe('importOhmStaging', () => {
     expect(bad.rows[0].n).toBe(0);
   });
 
+  it('stores a valid simplified copy of every geometry', async () => {
+    await importOhmStaging(pool);
+    const r = await pool.query(
+      `SELECT count(*) FILTER (WHERE geom_simple IS NULL OR NOT ST_IsValid(geom_simple)
+                                 OR ST_NPoints(geom_simple) > ST_NPoints(geom))::int AS bad
+       FROM polity_geometries WHERE source = 'ohm'`,
+    );
+    expect(r.rows[0].bad).toBe(0);
+  });
+
   it('aborts and changes nothing when the staging table is missing', async () => {
     await importOhmStaging(pool);
     await pool.query('DROP SCHEMA ohm_stage CASCADE');

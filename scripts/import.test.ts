@@ -103,6 +103,17 @@ describe('importDirectory', () => {
     ]);
   });
 
+  it('stores a valid simplified copy of every geometry', async () => {
+    await importDirectory(pool, FIXTURE_DIR);
+    const r = await pool.query(
+      `SELECT count(*)::int AS n,
+              count(*) FILTER (WHERE geom_simple IS NULL OR NOT ST_IsValid(geom_simple)
+                                 OR ST_NPoints(geom_simple) > ST_NPoints(geom))::int AS bad
+       FROM polity_geometries`,
+    );
+    expect(r.rows[0]).toEqual({ n: 5, bad: 0 });
+  });
+
   it('reloads only HB rows and keeps OHM rows', async () => {
     await pool.query("INSERT INTO polities (name, admin_level) VALUES ('Ohm Realm', 2)");
     await pool.query(

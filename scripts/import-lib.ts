@@ -36,8 +36,8 @@ WITH g AS (
   ON CONFLICT (name, admin_level) DO UPDATE SET name = EXCLUDED.name
   RETURNING id
 )
-INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, border_precision)
-SELECT p.id, 'hb', $7::float8, $8::float8, keep.geom, $9::smallint FROM p, keep`;
+INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, geom_simple, border_precision)
+SELECT p.id, 'hb', $7::float8, $8::float8, keep.geom, simplify_polygons(keep.geom), $9::smallint FROM p, keep`;
 
 export async function importDirectory(
   pool: pg.Pool,
