@@ -60,6 +60,9 @@ const map = new maplibregl.Map({
   },
 });
 
+// Test hook: lets the e2e test check that tiles are actually rendered.
+(window as unknown as { __map: maplibregl.Map }).__map = map;
+
 slider.addEventListener('input', () => {
   showYear();
   (map.getSource(source) as maplibregl.VectorTileSource).setTiles([tileUrl(TILES_URL, currentYear())]);
