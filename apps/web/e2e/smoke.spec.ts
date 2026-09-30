@@ -166,6 +166,8 @@ test('legal pages are linked from the map and identify the operator', async ({ p
     'https://github.com/mRudzki/historicalmap',
   );
 
+  await expect(page.getByRole('link', { name: 'About the author' })).toHaveAttribute('href', '/legal.html#about');
+
   await page.getByRole('link', { name: 'Privacy policy' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy Policy');
   const main = page.locator('main');
@@ -183,6 +185,14 @@ test('legal pages are linked from the map and identify the operator', async ({ p
   await expect(main).toContainText('free of charge');
   await expect(main).toContainText('no advertising');
   await expect(main).toContainText('Natural Earth');
+
+  // about the author: hobby project, personal profiles and the business site for doctors
+  const about = page.locator('#about');
+  await expect(about).toContainText('hobby project');
+  await expect(about.getByRole('link', { name: 'GitHub' })).toHaveAttribute('href', 'https://github.com/mRudzki');
+  await expect(about.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute('href', /^https:\/\/www\.linkedin\.com\/in\//);
+  await expect(about.getByRole('link', { name: 'mediqcare.pl' })).toHaveAttribute('href', 'https://mediqcare.pl');
+  await expect(about).toContainText('doctors');
   await expect(main).toContainText('Historical Basemaps');
 
   await page.getByRole('link', { name: 'Back to the map' }).click();
