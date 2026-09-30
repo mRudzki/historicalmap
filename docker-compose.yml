@@ -12,5 +12,24 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1 -d historicalmap"]
       interval: 3s
       retries: 20
+
+  martin:
+    image: ghcr.io/maplibre/martin:1.16.1
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/historicalmap
+    ports: ["3100:3000"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/historicalmap
+    ports: ["3001:3001"]
+    depends_on:
+      db: { condition: service_healthy }
+
 volumes:
   pgdata:
