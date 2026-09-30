@@ -41,6 +41,7 @@ from the SQL function `polities_tile(z, x, y, query_params)` (the year is passed
 `fallback`, `polities`, `regions`). A thin Fastify API answers `/range`, `/at?lat=&lon=&year=`,
 `/timeline?lat=&lon=` and `/history?lat=&lon=&levels=` (GeoJSON contours). The frontend (Vite +
 MapLibre GL, globe projection) renders the tiles and the panel. UI text lives in `apps/web/src/strings.ts`.
+Martin runs with its in-memory tile cache disabled (`--cache-size 0`) in `docker-compose.yml`: with the cache on it keeps serving the old tiles after an import until it is restarted. In production put an HTTP cache/CDN in front and purge it after an import.
 OHM is loaded from the daily planet dump with `osm2pgsql` (Docker, `db/ohm.lua`) into a staging schema,
 then transformed by `scripts/import-ohm.ts`.
 

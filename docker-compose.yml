@@ -15,6 +15,8 @@ services:
 
   martin:
     image: ghcr.io/maplibre/martin:1.16.1
+    # Martin caches tiles in memory and would keep serving the old ones after an import
+    command: ["--cache-size", "0"]
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/historicalmap
     ports: ["3100:3000"]
@@ -45,6 +47,7 @@ services:
   # Isolated stack for the e2e tests: a separate database, so tests never touch the dev data.
   martin-e2e:
     image: ghcr.io/maplibre/martin:1.16.1
+    command: ["--cache-size", "0"]
     profiles: ["e2e"]
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/historicalmap_e2e
