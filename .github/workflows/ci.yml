@@ -25,10 +25,6 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm }
       - run: npm ci
-      - run: docker compose up -d --build --wait db martin api
-      - run: DATA_DIR=db/fixtures npm run import
-      - run: docker compose exec -T db psql -U postgres -d historicalmap < db/fixtures/ohm/staging.sql
-      - run: OHM_SKIP_LOAD=1 npm run import:ohm
+      - run: scripts/e2e-setup.sh
       - run: npx playwright install --with-deps chromium
-      - run: npx playwright test
-        working-directory: apps/web
+      - run: npm run e2e:run -w apps/web

@@ -50,12 +50,9 @@ then transformed by `scripts/import-ohm.ts`.
 docker compose up -d --wait db
 npm test                 # backend (Vitest + PostGIS) and frontend logic
 npm run typecheck
-# e2e (needs the running stack and test data; tests the production build):
-DATA_DIR=db/fixtures npm run import   # NOTE: replaces the HB rows with test data
-docker compose exec -T db psql -U postgres -d historicalmap < db/fixtures/ohm/staging.sql
-OHM_SKIP_LOAD=1 npm run import:ohm    # NOTE: replaces the OHM rows with test data
-cd apps/web && npx playwright test
-npm run import && npm run import:ohm   # then restore the real data
+# e2e: an isolated stack (database historicalmap_e2e, API :3002, tiles :3101, web :5175) with the
+# test fixtures; it never touches your dev data
+npm run e2e
 ```
 
 ## Data

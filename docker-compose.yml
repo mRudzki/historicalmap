@@ -42,5 +42,26 @@ services:
     depends_on:
       db: { condition: service_healthy }
 
+  # Isolated stack for the e2e tests: a separate database, so tests never touch the dev data.
+  martin-e2e:
+    image: ghcr.io/maplibre/martin:1.16.1
+    profiles: ["e2e"]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/historicalmap_e2e
+    ports: ["3101:3000"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  api-e2e:
+    profiles: ["e2e"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/historicalmap_e2e
+    ports: ["3002:3001"]
+    depends_on:
+      db: { condition: service_healthy }
+
 volumes:
   pgdata:
