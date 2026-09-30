@@ -62,7 +62,7 @@ New OHM import, from the daily **planet dump** (spike result: Overpass was rejec
 ## Testing
 
 - Pure functions: OHM date parser and `resolveTimeline` (including the Alsace case, gap tolerance, adjacent and overlapping intervals).
-- PostGIS integration with offline fixtures in Overpass JSON format (`db/fixtures/ohm/`): polygon assembly, `name:en` preference, unparsable-date and share-alike skips, per-source idempotency, the three tile layers, precedence in `/at`, merging in `/timeline`, levels in `/history`.
+- PostGIS integration with offline fixtures (staging-table rows in `db/fixtures/ohm/*.sql`): `name:en` preference, unparsable-date and share-alike skips, per-source idempotency, the three tile layers, precedence in `/at`, merging in `/timeline`, levels in `/history`.
 - OHM staging → final transform tested from a hand-written staging fixture (SQL inserts of tags + geometry), so the Docker/osm2pgsql step is not needed in unit tests. The osm2pgsql Lua style is verified in a manual smoke step against the real planet dump, with the result recorded.
 - E2E: year input, "Regions" checkbox, "(approximate)" marker.
 - Manual, recorded: on real data Colmar shows `Deutsches Reich` for 1871–1918.
