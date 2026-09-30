@@ -1,7 +1,9 @@
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { importDirectory } from '../scripts/import-lib';
+import { importOhmStaging } from '../scripts/import-ohm-lib';
 export { applySchema } from './apply-schema';
 
 export const ADMIN_URL =
@@ -25,4 +27,9 @@ export async function clearAll(pool: pg.Pool): Promise<void> {
 
 export async function seedFixture(pool: pg.Pool): Promise<void> {
   await importDirectory(pool, FIXTURE_DIR);
+}
+
+export async function seedOhmFixture(pool: pg.Pool): Promise<void> {
+  await pool.query(await readFile(path.join(FIXTURE_DIR, 'ohm', 'staging.sql'), 'utf8'));
+  await importOhmStaging(pool);
 }

@@ -8,6 +8,7 @@
     "test": "vitest run && npm test -w apps/web",
     "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/web",
     "import": "tsx scripts/import.ts",
+    "import:ohm": "tsx scripts/import-ohm.ts",
     "start:api": "tsx apps/api/src/server.ts"
   },
   "devDependencies": {

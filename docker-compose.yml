@@ -31,5 +31,16 @@ services:
     depends_on:
       db: { condition: service_healthy }
 
+  osm2pgsql:
+    image: iboates/osm2pgsql:2.3.1
+    profiles: ["tools"]
+    environment:
+      PGPASSWORD: postgres
+    volumes:
+      - ./data/ohm:/data
+      - ./db:/db:ro
+    depends_on:
+      db: { condition: service_healthy }
+
 volumes:
   pgdata:
