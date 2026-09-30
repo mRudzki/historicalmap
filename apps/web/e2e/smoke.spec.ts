@@ -36,6 +36,45 @@ test('shows a message instead of a blank page when the API is down', async ({ pa
   await expect(page.locator('#year-label')).toContainText('Could not reach the server');
 });
 
+test('recovers by itself when the API comes back after a failed start', async ({ page }) => {
+  let calls = 0;
+  await page.route('**/range', (route) => (calls++ < 2 ? route.abort() : route.continue()));
+  await page.goto('/');
+  await expect(page.locator('#year-label')).toContainText('Could not reach the server');
+  await expect(page.locator('#year-label')).toHaveText(thisYear, { timeout: 20000 });
+  await page.waitForFunction(() => (window as any).__map);
+});
+
+test('HB border lines are drawn below the opaque OHM fill', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForFunction(() => (window as any).__map?.getStyle().layers.length);
+  const order: string[] = await page.evaluate(() =>
+    (window as any).__map.getStyle().layers.map((l: { id: string }) => l.id),
+  );
+  const at = (id: string) => order.indexOf(id);
+  expect(at('fallback-fill')).toBeLessThan(at('fallback-line-precise'));
+  expect(at('fallback-line-precise')).toBeLessThan(at('polity-fill'));
+  expect(at('fallback-line-approx')).toBeLessThan(at('polity-fill'));
+  expect(at('polity-fill')).toBeLessThan(at('polities-line-precise'));
+});
+
+test('the Regions checkbox works in pin mode too', async ({ page }) => {
+  await page.goto('/?lat=44&lng=2&zoom=5');
+  await page.getByRole('button', { name: 'Pin' }).click();
+  await expect(page.locator('#regions')).toBeVisible();
+
+  const canvas = page.locator('#map canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } });
+  await expect(page.locator('#panel')).toContainText('Realm X');
+  await expect(page.locator('#panel')).not.toContainText('Region R');
+
+  await page.locator('#regions').check(); // refetches the history of the pinned place
+  await expect(page.locator('#panel')).toContainText('Region R');
+  await page.locator('#regions').uncheck();
+  await expect(page.locator('#panel')).not.toContainText('Region R');
+});
+
 test('pin mode drops a pin and outlines every polity that ever held the place', async ({ page }) => {
   await page.goto('/?lat=45&lng=7&zoom=5');
   await page.waitForFunction(

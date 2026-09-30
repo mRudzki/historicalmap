@@ -14,6 +14,6 @@ export const t = {
   noData: 'No data for this place.',
   placeHistory: 'History of this place',
   noImportedData: 'no data — run the import',
-  serverUnreachable: 'Could not reach the server. Reload the page in a moment.',
+  serverUnreachable: 'Could not reach the server. Retrying…',
   loadFailed: 'Could not load data. Try clicking again.',
 };

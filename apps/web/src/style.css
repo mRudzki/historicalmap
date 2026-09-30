@@ -25,3 +25,5 @@ html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
 .regions-toggle { white-space: nowrap; font-size: .9rem; }
 #panel li.indent { margin-left: 16px; }
 .approx { color: #666; font-size: .8rem; }
+#regions-wrap { position: absolute; top: 60px; right: 16px; z-index: 1; padding: 6px 10px;
+  background: rgba(255,255,255,.95); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }

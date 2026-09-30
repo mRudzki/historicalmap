@@ -27,13 +27,18 @@ const modePin = document.getElementById('mode-pin') as HTMLButtonElement;
 const yearInput = document.getElementById('year-input') as HTMLInputElement;
 const regionsBox = document.getElementById('regions') as HTMLInputElement;
 
-let range: { min: number | null; max: number | null };
-try {
-  range = await fetchRange();
-} catch {
-  yearLabel.textContent = t.serverUnreachable;
-  throw new Error('API unavailable');
+// The API may be briefly down (restart, deploy): keep retrying instead of leaving a dead page.
+async function loadRange(): Promise<{ min: number | null; max: number | null }> {
+  for (;;) {
+    try {
+      return await fetchRange();
+    } catch {
+      yearLabel.textContent = t.serverUnreachable;
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
 }
+const range = await loadRange();
 if (range.min === null || range.max === null) {
   yearLabel.textContent = t.noImportedData;
   throw new Error('No data in the database');
@@ -88,8 +93,10 @@ const map = new maplibregl.Map({
     },
     layers: [
       { id: 'ocean', type: 'background', paint: { 'background-color': '#bcd7e6' } },
-      ...FILL_LAYERS.map((l) => fillLayer(l.id, l.layer, l.opacity)),
+      // HB (approximate) sits below OHM: its borders must not be drawn over the opaque OHM fill
+      fillLayer('fallback-fill', 'fallback', 0.55),
       ...lineLayers('fallback'),
+      fillLayer('polity-fill', 'polities', 1),
       ...lineLayers('polities'),
       {
         id: 'regions-line', type: 'line', source, 'source-layer': 'regions', layout: { visibility: 'none' },
@@ -148,10 +155,9 @@ function setYear(next: number): void {
 }
 slider.addEventListener('input', () => setYear(Number(slider.value)));
 yearInput.addEventListener('change', () => setYear(clampYear(yearInput.value, min, max, year)));
-regionsBox.addEventListener('change', setRegionsLayer);
+let lastClick: { lat: number; lng: number } | null = null;
 
-map.on('click', async (e) => {
-  const { lat, lng } = e.lngLat.wrap();
+async function lookup(lat: number, lng: number): Promise<void> {
   const id = ++latestClick;
   try {
     if (mode === 'pin') {
@@ -169,4 +175,15 @@ map.on('click', async (e) => {
     panel.hidden = false;
     panel.textContent = t.loadFailed;
   }
+}
+
+regionsBox.addEventListener('change', () => {
+  setRegionsLayer();
+  if (lastClick && !panel.hidden) void lookup(lastClick.lat, lastClick.lng); // refresh the open panel
+});
+
+map.on('click', (e) => {
+  const { lat, lng } = e.lngLat.wrap();
+  lastClick = { lat, lng };
+  void lookup(lat, lng);
 });
