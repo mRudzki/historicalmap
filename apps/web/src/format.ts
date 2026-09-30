@@ -7,7 +7,7 @@ export function formatYear(year: number): string {
 }
 
 export function polityLabel(name: string): string {
-  return name;
+  return name === UNNAMED ? t.lackOfData : name;
 }
 
 export function tileUrl(base: string, year: number): string {

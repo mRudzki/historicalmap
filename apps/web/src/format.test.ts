@@ -9,8 +9,8 @@ describe('formatYear', () => {
 });
 
 describe('polityLabel', () => {
-  it('keeps polity names as they are', () => {
-    expect(polityLabel('Unnamed territory')).toBe('Unnamed territory');
+  it('shows the unnamed-territory sentinel as "Lack of data" and keeps other names', () => {
+    expect(polityLabel('Unnamed territory')).toBe('Lack of data');
     expect(polityLabel('Teutonic Knights')).toBe('Teutonic Knights');
   });
 });

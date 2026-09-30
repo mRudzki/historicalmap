@@ -5,6 +5,7 @@ export const t = {
   pin: 'Pin',
   mode: 'Mode',
   present: 'present',
+  lackOfData: 'Lack of data',
   bc: 'BC',
   inYear: (year: string) => `In ${year}`,
   closestMap: (year: string) => `Closest available map: ${year}`,
