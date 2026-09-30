@@ -1,5 +1,6 @@
 import type { AtResponse, HistoryFeature, Period } from './api';
 import { formatYear, polityLabel } from './format';
+import { t } from './strings';
 
 function item(color: string, text: string): HTMLLIElement {
   const li = document.createElement('li');
@@ -22,16 +23,16 @@ export function renderPanel(el: HTMLElement, at: AtResponse, periods: Period[]):
   el.replaceChildren();
   el.hidden = false;
 
-  el.append(heading('h2', `W roku ${formatYear(at.year)}`));
+  el.append(heading('h2', t.inYear(formatYear(at.year))));
   if (at.snapshotYear !== null && at.snapshotYear !== at.year) {
     const note = document.createElement('p');
     note.className = 'muted';
-    note.textContent = `Najbliższa dostępna mapa: ${formatYear(at.snapshotYear)}`;
+    note.textContent = t.closestMap(formatYear(at.snapshotYear));
     el.append(note);
   }
   if (at.polities.length === 0) {
     const none = document.createElement('p');
-    none.textContent = 'Brak danych dla tego miejsca w tym roku.';
+    none.textContent = t.noDataYear;
     el.append(none);
   } else {
     const ul = document.createElement('ul');
@@ -39,17 +40,17 @@ export function renderPanel(el: HTMLElement, at: AtResponse, periods: Period[]):
     el.append(ul);
   }
 
-  el.append(heading('h3', 'Historia tego miejsca'));
+  el.append(heading('h3', t.placeHistory));
   const ul = document.createElement('ul');
   for (const p of periods) {
-    const to = p.to === null ? 'dziś' : formatYear(p.to);
+    const to = p.to === null ? t.present : formatYear(p.to);
     ul.append(item(p.color, `${polityLabel(p.name)}: ${formatYear(p.from)} – ${to}`));
   }
   el.append(ul);
 }
 
 function periodsText(periods: { from: number; to: number | null }[]): string {
-  return periods.map((p) => `${formatYear(p.from)} – ${p.to === null ? 'dziś' : formatYear(p.to)}`).join(', ');
+  return periods.map((p) => `${formatYear(p.from)} – ${p.to === null ? t.present : formatYear(p.to)}`).join(', ');
 }
 
 // Pin mode: every polity that ever held the place; hovering a row highlights its contour.
@@ -60,10 +61,10 @@ export function renderHistoryPanel(
 ): void {
   el.replaceChildren();
   el.hidden = false;
-  el.append(heading('h2', 'Historia tego miejsca'));
+  el.append(heading('h2', t.placeHistory));
   if (features.length === 0) {
     const none = document.createElement('p');
-    none.textContent = 'Brak danych dla tego miejsca.';
+    none.textContent = t.noData;
     el.append(none);
     return;
   }

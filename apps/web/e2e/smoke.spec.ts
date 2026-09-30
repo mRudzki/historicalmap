@@ -28,7 +28,7 @@ test('click shows the polity, slider changes the year', async ({ page }) => {
 test('shows a message instead of a blank page when the API is down', async ({ page }) => {
   await page.route('**/snapshots', (route) => route.abort());
   await page.goto('/');
-  await expect(page.locator('#year-label')).toContainText('Nie udało się');
+  await expect(page.locator('#year-label')).toContainText('Could not reach the server');
 });
 
 test('pin mode drops a pin and outlines every polity that ever held the place', async ({ page }) => {
@@ -50,7 +50,7 @@ test('pin mode drops a pin and outlines every polity that ever held the place', 
   await expect(page.locator('#panel')).toContainText('Kingdom A');
   await expect(page.locator('#panel')).toContainText('Kingdom B');
 
-  await page.getByRole('button', { name: 'Rok' }).click();
+  await page.getByRole('button', { name: 'Year' }).click();
   await expect(page.locator('.maplibregl-marker')).toHaveCount(0);
   await expect(page.locator('#slider')).toBeVisible();
 });

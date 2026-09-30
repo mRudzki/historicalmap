@@ -4,13 +4,13 @@ import { formatYear, polityLabel, tileUrl } from './format';
 describe('formatYear', () => {
   it('formats AD and BC years', () => {
     expect(formatYear(1410)).toBe('1410');
-    expect(formatYear(-500)).toBe('500 p.n.e.');
+    expect(formatYear(-500)).toBe('500 BC');
   });
 });
 
 describe('polityLabel', () => {
-  it('translates the unnamed-territory sentinel and keeps other names', () => {
-    expect(polityLabel('Unnamed territory')).toBe('Terytorium bez nazwy');
+  it('keeps polity names as they are', () => {
+    expect(polityLabel('Unnamed territory')).toBe('Unnamed territory');
     expect(polityLabel('Teutonic Knights')).toBe('Teutonic Knights');
   });
 });

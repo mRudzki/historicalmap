@@ -5,6 +5,7 @@ import { TILES_URL, fetchAt, fetchHistory, fetchSnapshots, fetchTimeline } from 
 import { formatYear, tileUrl } from './format';
 import { PinLayer, HISTORY_SOURCE, emptyHistory, historyLayers } from './pin-mode';
 import { renderHistoryPanel, renderPanel } from './panel';
+import { t } from './strings';
 
 // Production: the worker is emitted by the maplibreWorker plugin in vite.config.ts (dev needs nothing).
 if (import.meta.env.PROD) {
@@ -27,11 +28,11 @@ let years: number[];
 try {
   years = await fetchSnapshots();
 } catch {
-  yearLabel.textContent = 'Nie udało się połączyć z serwerem. Odśwież stronę za chwilę.';
+  yearLabel.textContent = t.serverUnreachable;
   throw new Error('API unavailable');
 }
 if (years.length === 0) {
-  yearLabel.textContent = 'brak danych — uruchom import';
+  yearLabel.textContent = t.noImportedData;
   throw new Error('No snapshots in the database');
 }
 
@@ -131,6 +132,6 @@ map.on('click', async (e) => {
   } catch {
     if (id !== latestClick) return;
     panel.hidden = false;
-    panel.textContent = 'Nie udało się pobrać danych. Spróbuj kliknąć ponownie.';
+    panel.textContent = t.loadFailed;
   }
 });

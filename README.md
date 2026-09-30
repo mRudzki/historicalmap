@@ -1,57 +1,58 @@
-# Historia Europy na mapie
+# History of Europe on a map
 
-Kliknij punkt na mapie lub globusie Europy i zobacz, do jakiego państwa lub tworu
-przedpaństwowego to miejsce należało. Suwak roku koloruje granice (każdy twór ma inny
-kolor), a panel po kliknięciu pokazuje historię danego miejsca w czasie.
+Click a point on a map or globe of Europe and see which state or pre-state polity that place
+belonged to. A year slider colours every polity's borders differently, and clicking shows the
+history of that place over time.
 
-Dwa tryby: **Rok** (suwak roku, klik pokazuje twór z danego roku i historię miejsca) oraz
-**Pin** (klik stawia pinezkę i rysuje kontury wszystkich tworów, do których to miejsce
-kiedykolwiek należało, z lekkim wypełnieniem).
+Two modes: **Year** (slider; a click shows the polity in that year plus the place's history) and
+**Pin** (a click drops a pin and outlines every polity that ever held the place, with a faint fill).
 
-Projekt edukacyjny: granice są przybliżone.
+An educational project: borders are approximate.
 
-## Szybki start
+## Quick start
 
-Wymagane: Docker, Node 24.
+Requires Docker and Node 24.
 
 ```bash
-docker compose up -d --wait      # PostGIS, Martin (kafelki), API
-scripts/fetch-data.sh            # pobiera dane Historical Basemaps do data/
+docker compose up -d --wait      # PostGIS, Martin (tiles), API
+scripts/fetch-data.sh            # downloads Historical Basemaps into data/
 npm install
-npm run import                   # ładuje dane do bazy
+npm run import                   # loads the data into the database
 npm run dev -w apps/web          # http://localhost:5174
 ```
 
-Domyślnie importowane są migawki od roku 1 n.e.; zmienna `MIN_YEAR` (np. `MIN_YEAR=-500`) dodaje starsze.
+By default snapshots from year 1 AD onwards are imported; set `MIN_YEAR` (e.g. `MIN_YEAR=-500`)
+to include older ones.
 
-Porty: baza `5433`, Martin `3100`, API `3001`, frontend `5174`
-(zmienne `VITE_API_URL` i `VITE_TILES_URL` pozwalają je zmienić we frontendzie).
+Ports: database `5433`, Martin `3100`, API `3001`, frontend `5174`
+(`VITE_API_URL` and `VITE_TILES_URL` override the frontend's backends).
 
-## Architektura
+## Architecture
 
-PostGIS przechowuje migawki granic. Martin streamuje kafelki wektorowe (MVT) z funkcji SQL
-`polities_tile(z, x, y, query_params)` (rok w parametrze `?year=`). Cienkie API (Fastify) odpowiada na zapytania
-`/snapshots`, `/at?lat=&lon=&year=`, `/timeline?lat=&lon=` i `/history?lat=&lon=` (kontury GeoJSON). Frontend (Vite + MapLibre GL,
-projekcja globe) rysuje kafelki i panel.
+PostGIS stores the border snapshots. Martin streams vector tiles (MVT) from the SQL function
+`polities_tile(z, x, y, query_params)` (the year is passed as `?year=`). A thin Fastify API
+answers `/snapshots`, `/at?lat=&lon=&year=`, `/timeline?lat=&lon=` and `/history?lat=&lon=`
+(GeoJSON contours). The frontend (Vite + MapLibre GL, globe projection) renders the tiles and the panel.
+UI text lives in `apps/web/src/strings.ts`.
 
-## Testy
+## Tests
 
 ```bash
 docker compose up -d --wait db
-npm test                 # backend (Vitest + PostGIS) i logika frontendu
+npm test                 # backend (Vitest + PostGIS) and frontend logic
 npm run typecheck
-# e2e (wymaga uruchomionego stosu i danych testowych, testuje build produkcyjny):
-DATA_DIR=db/fixtures npm run import   # UWAGA: zastępuje dane w bazie danymi testowymi
+# e2e (needs the running stack and test data; tests the production build):
+DATA_DIR=db/fixtures npm run import   # NOTE: replaces the database contents with test data
 cd apps/web && npx playwright test
-npm run import                         # potem przywróć prawdziwe dane
+npm run import                         # then restore the real data
 ```
 
-## Dane
+## Data
 
-Granice pochodzą z [Historical Basemaps](https://github.com/aourednik/historical-basemaps)
-(GPL-3.0), autor: Andrew Ourednik. Dane nie są częścią repozytorium, pobiera je
-`scripts/fetch-data.sh`. Autor zastrzega, że są przybliżone i w toku prac.
+Borders come from [Historical Basemaps](https://github.com/aourednik/historical-basemaps)
+(GPL-3.0) by Andrew Ourednik. The data is not part of this repository; `scripts/fetch-data.sh`
+downloads it. The author notes it is approximate and a work in progress.
 
-## Licencja
+## License
 
-GPL-3.0 (patrz `LICENSE`).
+GPL-3.0 (see `LICENSE`).
