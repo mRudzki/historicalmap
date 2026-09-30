@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { importDirectory } from '../scripts/import-lib';
 
 export const ADMIN_URL =
   process.env.ADMIN_DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/postgres';
@@ -26,4 +27,8 @@ export async function clearAll(pool: pg.Pool): Promise<void> {
   await pool.query(
     'TRUNCATE polity_geometries, snapshots, polities RESTART IDENTITY CASCADE',
   );
+}
+
+export async function seedFixture(pool: pg.Pool): Promise<void> {
+  await importDirectory(pool, FIXTURE_DIR);
 }

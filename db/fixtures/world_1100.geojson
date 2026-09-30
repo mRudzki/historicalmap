@@ -1,0 +1,83 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "NAME": "Kingdom B",
+    "ABBREVN": null,
+    "SUBJECTO": null,
+    "BORDERPRECISION": 1,
+    "PARTOF": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        0,
+        40
+       ],
+       [
+        8,
+        40
+       ],
+       [
+        8,
+        50
+       ],
+       [
+        0,
+        50
+       ],
+       [
+        0,
+        40
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "NAME": "Kingdom B",
+    "ABBREVN": null,
+    "SUBJECTO": null,
+    "BORDERPRECISION": 1,
+    "PARTOF": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        8,
+        40
+       ],
+       [
+        15,
+        40
+       ],
+       [
+        15,
+        50
+       ],
+       [
+        8,
+        50
+       ],
+       [
+        8,
+        40
+       ]
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

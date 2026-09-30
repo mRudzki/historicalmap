@@ -1,0 +1,161 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "NAME": "Kingdom A",
+    "ABBREVN": null,
+    "SUBJECTO": null,
+    "BORDERPRECISION": 2,
+    "PARTOF": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        0,
+        40
+       ],
+       [
+        10,
+        40
+       ],
+       [
+        10,
+        50
+       ],
+       [
+        0,
+        50
+       ],
+       [
+        0,
+        40
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "NAME": "Kingdom B",
+    "ABBREVN": null,
+    "SUBJECTO": null,
+    "BORDERPRECISION": 1,
+    "PARTOF": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        5,
+        40
+       ],
+       [
+        15,
+        40
+       ],
+       [
+        15,
+        50
+       ],
+       [
+        5,
+        50
+       ],
+       [
+        5,
+        40
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "NAME": null,
+    "ABBREVN": null,
+    "SUBJECTO": null,
+    "BORDERPRECISION": 1,
+    "PARTOF": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        20,
+        40
+       ],
+       [
+        25,
+        40
+       ],
+       [
+        25,
+        45
+       ],
+       [
+        20,
+        45
+       ],
+       [
+        20,
+        40
+       ]
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "NAME": "Far Empire",
+    "ABBREVN": null,
+    "SUBJECTO": null,
+    "BORDERPRECISION": 1,
+    "PARTOF": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        100,
+        40
+       ],
+       [
+        110,
+        40
+       ],
+       [
+        110,
+        50
+       ],
+       [
+        100,
+        50
+       ],
+       [
+        100,
+        40
+       ]
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

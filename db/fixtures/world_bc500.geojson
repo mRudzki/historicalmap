@@ -1,0 +1,44 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "NAME": "Ancient Realm",
+    "ABBREVN": null,
+    "SUBJECTO": null,
+    "BORDERPRECISION": 1,
+    "PARTOF": null
+   },
+   "geometry": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        0,
+        40
+       ],
+       [
+        5,
+        40
+       ],
+       [
+        5,
+        45
+       ],
+       [
+        0,
+        45
+       ],
+       [
+        0,
+        40
+       ]
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}
