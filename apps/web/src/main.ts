@@ -44,7 +44,7 @@ showYear();
 
 const source = 'polities';
 const attribution =
-  'Granice: <a href="https://github.com/aourednik/historical-basemaps">Historical Basemaps</a> (GPL-3.0)';
+  'Borders: <a href="https://github.com/aourednik/historical-basemaps">Historical Basemaps</a> (GPL-3.0)';
 
 const map = new maplibregl.Map({
   container: mapEl,

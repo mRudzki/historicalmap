@@ -54,3 +54,26 @@ test('pin mode drops a pin and outlines every polity that ever held the place', 
   await expect(page.locator('.maplibregl-marker')).toHaveCount(0);
   await expect(page.locator('#slider')).toBeVisible();
 });
+
+test('legal pages are linked from the map and identify the operator', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+    'href',
+    'https://github.com/mRudzki/historicalmap',
+  );
+
+  await page.getByRole('link', { name: 'Privacy policy' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy Policy');
+  const main = page.locator('main');
+  await expect(main).toContainText('Michał Rudzki');
+  await expect(main).toContainText('6452571170');
+  await expect(main).toContainText('does not use cookies');
+
+  await page.getByRole('link', { name: 'Legal notice' }).click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Legal Notice');
+  await expect(main).toContainText('GPL-3.0');
+  await expect(main).toContainText('Historical Basemaps');
+
+  await page.getByRole('link', { name: 'Back to the map' }).click();
+  await expect(page.locator('#map')).toBeVisible();
+});

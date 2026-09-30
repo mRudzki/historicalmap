@@ -21,6 +21,11 @@ function maplibreWorker(): Plugin {
 export default defineConfig({
   plugins: [maplibreWorker()],
   server: { port: 5174 },
+  build: {
+    rollupOptions: {
+      input: { main: 'index.html', privacy: 'privacy.html', legal: 'legal.html' },
+    },
+  },
   // In dev, the dep-optimizer breaks maplibre's worker URL.
   optimizeDeps: { exclude: ['maplibre-gl'] },
   test: { include: ['src/**/*.test.ts'] }, // e2e/ is Playwright's

@@ -53,6 +53,10 @@ Borders come from [Historical Basemaps](https://github.com/aourednik/historical-
 (GPL-3.0) by Andrew Ourednik. The data is not part of this repository; `scripts/fetch-data.sh`
 downloads it. The author notes it is approximate and a work in progress.
 
+## Legal pages
+
+The site ships a Privacy Policy (`apps/web/privacy.html`) and a Legal Notice (`apps/web/legal.html`), linked from the map footer together with the GitHub repository. If you deploy your own instance, replace the operator details in both pages with your own.
+
 ## License
 
 GPL-3.0 (see `LICENSE`).
