@@ -3,7 +3,7 @@ import type { LayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
 import { TILES_URL, fetchAt, fetchHistory, fetchRange, fetchTimeline } from './api';
-import { clampYear, formatYear, tileUrl } from './format';
+import { clampYear, formatYear, parseCoordinates, tileUrl } from './format';
 import { PinLayer, HISTORY_SOURCE, emptyHistory, historyLayers } from './pin-mode';
 import { renderHistoryPanel, renderPanel } from './panel';
 import { t } from './strings';
@@ -26,6 +26,9 @@ const modeYear = document.getElementById('mode-year') as HTMLButtonElement;
 const modePin = document.getElementById('mode-pin') as HTMLButtonElement;
 const yearInput = document.getElementById('year-input') as HTMLInputElement;
 const regionsBox = document.getElementById('regions') as HTMLInputElement;
+const coordsForm = document.getElementById('coords') as HTMLFormElement;
+const coordsInput = document.getElementById('coords-input') as HTMLInputElement;
+const coordsError = document.getElementById('coords-error') as HTMLElement;
 
 // The API may be briefly down (restart, deploy): keep retrying instead of leaving a dead page.
 async function loadRange(): Promise<{ min: number | null; max: number | null }> {
@@ -133,6 +136,8 @@ function setMode(next: Mode): void {
   modeYear.setAttribute('aria-pressed', String(next === 'year'));
   modePin.setAttribute('aria-pressed', String(next === 'pin'));
   controls.hidden = next === 'pin';
+  coordsForm.hidden = next !== 'pin';
+  coordsError.hidden = true;
   pin.setVisible(next === 'pin');
   if (next === 'pin') {
     // Neutral, modern-day land as context so the coloured contours stay readable.
@@ -185,5 +190,23 @@ regionsBox.addEventListener('change', () => {
 map.on('click', (e) => {
   const { lat, lng } = e.lngLat.wrap();
   lastClick = { lat, lng };
+  coordsInput.value = `${lat.toFixed(4)}, ${lng.toFixed(4)}`; // handy for copying / editing
+  coordsError.hidden = true;
   void lookup(lat, lng);
+});
+
+// Pin mode: type coordinates instead of clicking.
+coordsInput.addEventListener('input', () => (coordsError.hidden = true));
+coordsForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const place = parseCoordinates(coordsInput.value);
+  if (!place) {
+    coordsError.textContent = t.coordsError;
+    coordsError.hidden = false;
+    return;
+  }
+  coordsError.hidden = true;
+  lastClick = place;
+  map.flyTo({ center: [place.lng, place.lat], zoom: Math.max(map.getZoom(), 5) });
+  void lookup(place.lat, place.lng);
 });

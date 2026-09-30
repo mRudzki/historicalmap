@@ -75,6 +75,34 @@ test('the Regions checkbox works in pin mode too', async ({ page }) => {
   await expect(page.locator('#panel')).not.toContainText('Region R');
 });
 
+test('pin mode: coordinates can be typed, and clicking the map fills them in', async ({ page }) => {
+  await page.goto('/?lat=44&lng=2&zoom=3');
+  await expect(page.locator('#coords')).toBeHidden();
+  await page.getByRole('button', { name: 'Pin' }).click();
+  await expect(page.locator('#coords')).toBeVisible();
+
+  const input = page.locator('#coords-input');
+  await input.fill('44, 2');
+  await input.press('Enter');
+  await expect(page.locator('.maplibregl-marker')).toBeVisible();
+  await expect(page.locator('#panel')).toContainText('Realm X');
+  await expect(page.locator('#coords-error')).toBeHidden();
+
+  await input.fill('not coordinates');
+  await input.press('Enter');
+  await expect(page.locator('#coords-error')).toContainText('Enter coordinates like');
+  await expect(page.locator('#panel')).toContainText('Realm X'); // nothing changed
+
+  // the map was flown to the place; a click next to the pin writes that position into the field
+  await expect.poll(() => page.evaluate(() => (window as any).__map.getZoom())).toBeGreaterThanOrEqual(5);
+  await page.waitForTimeout(1500);
+  const canvas = page.locator('#map canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width / 2 + 40, y: box.height / 2 } }); // the pin itself covers the centre
+  await expect(input).toHaveValue(/^4[34]\.\d{4}, [1-4]\.\d{4}$/);
+  await expect(page.locator('#coords-error')).toBeHidden();
+});
+
 test('pin mode drops a pin and outlines every polity that ever held the place', async ({ page }) => {
   await page.goto('/?lat=45&lng=7&zoom=5');
   await page.waitForFunction(

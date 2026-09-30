@@ -5,7 +5,7 @@ belonged to. A year slider colours every polity's borders differently, and click
 history of that place over time.
 
 Two modes: **Year** (slider; a click shows the polity in that year plus the place's history) and
-**Pin** (a click drops a pin and outlines every polity that ever held the place, with a faint fill).
+**Pin** (a click drops a pin and outlines every polity that ever held the place, with a faint fill). In Pin mode you can also type coordinates (`54.35, 18.65`, `54.35N 18.65E`) instead of clicking.
 
 An educational project: borders are approximate.
 

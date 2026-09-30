@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampYear, formatYear, polityLabel, tileUrl } from './format';
+import { clampYear, formatYear, parseCoordinates, polityLabel, tileUrl } from './format';
 
 describe('formatYear', () => {
   it('formats AD and BC years', () => {
@@ -33,5 +33,43 @@ describe('clampYear', () => {
   it('keeps the fallback for non-numeric input', () => {
     expect(clampYear('', 1000, 2026, 1500)).toBe(1500);
     expect(clampYear('abc', 1000, 2026, 1500)).toBe(1500);
+  });
+});
+
+describe('parseCoordinates', () => {
+  it.each([
+    ['54.35, 18.65'],
+    ['54.35 18.65'],
+    ['54.35;18.65'],
+    ['  54.35 ,18.65  '],
+    ['54.35N 18.65E'],
+    ['54.35° N, 18.65° E'],
+  ])('parses %j', (text) => {
+    expect(parseCoordinates(text)).toEqual({ lat: 54.35, lng: 18.65 });
+  });
+
+  it('uses S and W hemispheres and plain negatives for southern and western places', () => {
+    expect(parseCoordinates('54.35 S, 18.65 W')).toEqual({ lat: -54.35, lng: -18.65 });
+    expect(parseCoordinates('-33.9, 151.2')).toEqual({ lat: -33.9, lng: 151.2 });
+  });
+
+  it('accepts the extreme valid values', () => {
+    expect(parseCoordinates('90, 180')).toEqual({ lat: 90, lng: 180 });
+    expect(parseCoordinates('-90, -180')).toEqual({ lat: -90, lng: -180 });
+  });
+
+  it.each([
+    ['empty', ''],
+    ['text', 'abc'],
+    ['one number', '54.35'],
+    ['latitude out of range', '91, 0'],
+    ['longitude out of range', '0, 181'],
+    ['decimal commas (ambiguous)', '54,35 18,65'],
+    ['hemispheres in the wrong order', '54.35 E 18.65 N'],
+    ['sign and hemisphere together', '-54.35 S, 18.65 E'],
+    ['exponent notation', '1e1, 2'],
+    ['three numbers', '1, 2, 3'],
+  ])('rejects %s', (_label, text) => {
+    expect(parseCoordinates(text)).toBeNull();
   });
 });

@@ -13,6 +13,11 @@
       <button id="mode-pin" type="button" aria-pressed="false">Pin</button>
     </div>
     <label class="regions-toggle" id="regions-wrap"><input id="regions" type="checkbox" /> Regions</label>
+    <form id="coords" hidden>
+      <input id="coords-input" type="text" inputmode="decimal" autocomplete="off" aria-label="Coordinates" placeholder="lat, lon" />
+      <button type="submit">Go</button>
+      <span id="coords-error" role="alert" hidden></span>
+    </form>
     <aside id="panel" hidden></aside>
     <nav class="legal-links" aria-label="Legal">
       <a href="/legal.html">Legal notice</a>
