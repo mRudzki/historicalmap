@@ -64,7 +64,7 @@ const FILL_LAYERS = [
   { id: 'polity-fill', layer: 'polities', opacity: 1 },
 ] as const;
 const attribution =
-  'Borders: <a href="https://www.openhistoricalmap.org/">OpenHistoricalMap</a> (CC0), <a href="https://github.com/aourednik/historical-basemaps">Historical Basemaps</a> (GPL-3.0)';
+  'Borders: <a href="https://www.openhistoricalmap.org/">OpenHistoricalMap</a> (CC0), <a href="https://github.com/aourednik/historical-basemaps">Historical Basemaps</a> (GPL-3.0), coastlines: <a href="https://www.naturalearthdata.com/">Natural Earth</a>';
 
 const fillLayer = (id: string, layer: string, opacity: number): LayerSpecification => ({
   id, type: 'fill', source, 'source-layer': layer,

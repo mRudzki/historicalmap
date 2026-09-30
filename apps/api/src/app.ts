@@ -29,6 +29,9 @@ const historySchema = {
 } as const;
 
 const POINT = 'ST_SetSRID(ST_MakePoint($1, $2), 4326)';
+// Point-in-polygon on the light geometry (~200 m tolerance) through its own GiST index: the big
+// geometry is never read for lookups. Importers (and `npm run clip`) fill geom_lookup.
+const HIT = `g.geom_lookup && ${POINT} AND ST_Intersects(g.geom_lookup, ${POINT})`;
 const VALID_AT = 'g.valid_from <= $3 AND (g.valid_to IS NULL OR g.valid_to > $3)';
 const BASE = 'FROM polity_geometries g JOIN polities p ON p.id = g.polity_id';
 
@@ -58,7 +61,7 @@ export function createApp(pool: pg.Pool): FastifyInstance {
       `SELECT DISTINCT ON (p.id, g.source) p.id, p.name, p.admin_level AS "adminLevel", g.source,
               g.border_precision AS "borderPrecision", polity_color(p.name) AS color
        ${BASE}
-       WHERE ${VALID_AT} AND ST_Intersects(g.geom, ${POINT})
+       WHERE ${VALID_AT} AND ${HIT}
        ORDER BY p.id, g.source, g.border_precision DESC NULLS LAST`,
       [lon, lat, year + 0.5],
     );
@@ -76,7 +79,7 @@ export function createApp(pool: pg.Pool): FastifyInstance {
     const { rows } = await pool.query(
       `SELECT p.name, polity_color(p.name) AS color, g.source, g.valid_from, g.valid_to
        ${BASE}
-       WHERE p.admin_level = 2 AND ST_Intersects(g.geom, ${POINT})`,
+       WHERE p.admin_level = 2 AND ${HIT}`,
       [lon, lat],
     );
     return { periods: resolveTimeline(intervals(rows, 'ohm'), intervals(rows, 'hb')).map(displayPeriod) };
@@ -92,7 +95,7 @@ export function createApp(pool: pg.Pool): FastifyInstance {
       `SELECT p.id, p.name, p.admin_level AS level, polity_color(p.name) AS color,
               g.source, g.valid_from, g.valid_to
        ${BASE}
-       WHERE p.admin_level = ANY($3::int[]) AND ST_Intersects(g.geom, ${POINT})`,
+       WHERE p.admin_level = ANY($3::int[]) AND ${HIT}`,
       [lon, lat, wanted],
     );
 
@@ -116,9 +119,9 @@ export function createApp(pool: pg.Pool): FastifyInstance {
 
     const geo = await pool.query(
       `SELECT p.id, ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_CollectionExtract(
-                ST_MakeValid(ST_Union(COALESCE(g.geom_simple, g.geom))), 3), 0.02))::json AS geometry
+                ST_MakeValid(ST_Union(COALESCE(g.geom_simple, g.geom))), 3), 0.02), 4)::json AS geometry
        ${BASE}
-       WHERE p.id = ANY($3::int[]) AND ST_Intersects(g.geom, ${POINT})
+       WHERE p.id = ANY($3::int[]) AND ${HIT}
        GROUP BY p.id`,
       [lon, lat, entries.map((e) => e.id)],
     );

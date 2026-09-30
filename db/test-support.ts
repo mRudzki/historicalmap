@@ -21,7 +21,7 @@ export function testPool(): pg.Pool {
 
 export async function clearAll(pool: pg.Pool): Promise<void> {
   await pool.query(
-    'TRUNCATE polity_geometries, polities RESTART IDENTITY CASCADE',
+    'TRUNCATE polity_geometries, polities, land RESTART IDENTITY CASCADE',
   );
 }
 

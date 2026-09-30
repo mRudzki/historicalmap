@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { FIXTURE_DIR, clearAll, testPool } from '../db/test-support';
 import { UNNAMED, importDirectory, parseSnapshotYear } from './import-lib';
+import { importLand } from './import-land-lib';
 
 const pool = testPool();
 beforeEach(() => clearAll(pool));
@@ -103,15 +104,35 @@ describe('importDirectory', () => {
     ]);
   });
 
-  it('stores a valid simplified copy of every geometry', async () => {
+  it('stores valid simplified copies (tiles and point lookups) of every geometry', async () => {
     await importDirectory(pool, FIXTURE_DIR);
     const r = await pool.query(
       `SELECT count(*)::int AS n,
               count(*) FILTER (WHERE geom_simple IS NULL OR NOT ST_IsValid(geom_simple)
-                                 OR ST_NPoints(geom_simple) > ST_NPoints(geom))::int AS bad
+                                 OR ST_NPoints(geom_simple) > ST_NPoints(geom)
+                                 OR geom_lookup IS NULL OR NOT ST_IsValid(geom_lookup)
+                                 OR ST_NPoints(geom_lookup) > ST_NPoints(geom))::int AS bad
        FROM polity_geometries`,
     );
     expect(r.rows[0]).toEqual({ n: 5, bad: 0 });
+  });
+
+  it('clips geometries to the land when land is loaded and drops polygons that are entirely at sea', async () => {
+    await importLand(pool, path.join(FIXTURE_DIR, 'land', 'land.geojson'));
+    const result = await importDirectory(pool, FIXTURE_DIR);
+    expect(result.features).toBe(4); // Unnamed territory (20..25) lies in the sea; the others keep a land part
+    const areas = await pool.query(
+      `SELECT p.name, g.valid_from, round(ST_Area(g.geom)::numeric) AS area, round(ST_Area(g.geom_simple)::numeric) AS area_simple
+       FROM polity_geometries g JOIN polities p ON p.id = g.polity_id ORDER BY g.valid_from, p.name, area`,
+    );
+    expect(areas.rows).toEqual([
+      { name: 'Kingdom A', valid_from: 1000, area: '70', area_simple: '70' }, // 5*10 + 4*5
+      { name: 'Kingdom B', valid_from: 1000, area: '20', area_simple: '20' }, // only lon 6..10 x lat 40..45
+      { name: 'Kingdom B', valid_from: 1100, area: '10', area_simple: '10' }, // lon 8..10 x lat 40..45
+      { name: 'Kingdom B', valid_from: 1100, area: '60', area_simple: '60' }, // 5*10 + 2*5
+    ]);
+    const gone = await pool.query("SELECT 1 FROM polities WHERE name = 'Unnamed territory'");
+    expect(gone.rowCount).toBe(0);
   });
 
   it('reloads only HB rows and keeps OHM rows', async () => {

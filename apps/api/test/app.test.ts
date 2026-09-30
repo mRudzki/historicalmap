@@ -133,6 +133,48 @@ describe('HB data only', () => {
   });
 });
 
+describe('point lookups use the light geometry', () => {
+  beforeAll(async () => {
+    await clearAll(pool);
+    await pool.query("INSERT INTO polities (name, admin_level) VALUES ('Lookup Land', 2)");
+    // geom is the small square 0..1; geom_lookup is deliberately larger (0..2) so the test can tell which one is used
+    await pool.query(
+      `INSERT INTO polity_geometries (polity_id, source, valid_from, geom, geom_lookup)
+       SELECT 1, 'hb', 1000, ST_Multi(ST_GeomFromText('POLYGON((0 60,1 60,1 61,0 61,0 60))', 4326)),
+                              ST_Multi(ST_GeomFromText('POLYGON((0 60,2 60,2 62,0 62,0 60))', 4326))`,
+    );
+  });
+  afterAll(async () => {
+    await clearAll(pool);
+    await seedFixture(pool);
+  });
+
+  it('/at answers from geom_lookup', async () => {
+    expect(names((await get('/at?lat=61.5&lon=1.5&year=1000')).body)).toEqual(['Lookup Land']);
+  });
+
+  it('/history rounds coordinates to 4 decimals (about 11 m) to keep the payload small', async () => {
+    await pool.query("INSERT INTO polities (name, admin_level) VALUES ('Precise Land', 2)");
+    await pool.query(
+      `INSERT INTO polity_geometries (polity_id, source, valid_from, geom, geom_lookup)
+       SELECT p.id, 'hb', 1000, g.geom, g.geom
+       FROM polities p,
+            LATERAL (SELECT ST_Multi(ST_GeomFromText('POLYGON((10.123456789 60.987654321,11.111111111 60.987654321,11.111111111 61.222222222,10.123456789 61.222222222,10.123456789 60.987654321))', 4326)) AS geom) g
+       WHERE p.name = 'Precise Land'`,
+    );
+    const feature = (await get('/history?lat=61.1&lon=10.5')).json().features[0];
+    const numbers: string[] = JSON.stringify(feature.geometry.coordinates).match(/-?\d+\.\d+/g) ?? [];
+    expect(numbers.length).toBeGreaterThan(0);
+    for (const n of numbers) expect(n.split('.')[1].length).toBeLessThanOrEqual(4);
+  });
+
+  it('/timeline and /history answer from geom_lookup too', async () => {
+    expect((await get('/timeline?lat=61.5&lon=1.5')).json().periods.map((p: { name: string }) => p.name)).toEqual(['Lookup Land']);
+    const features = (await get('/history?lat=61.5&lon=1.5')).json().features;
+    expect(features.map((f: { properties: { name: string } }) => f.properties.name)).toEqual(['Lookup Land']);
+  });
+});
+
 describe('HB + OHM data', () => {
   beforeAll(async () => {
     await clearAll(pool);

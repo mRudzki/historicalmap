@@ -22,6 +22,12 @@ npm run import:ohm               # loads OpenHistoricalMap (preferred): download
 npm run dev -w apps/web          # http://localhost:5174
 ```
 
+The importers load a land mask ([Natural Earth](https://www.naturalearthdata.com/), public domain, ~10 MB,
+downloaded by `scripts/fetch-land.sh`) on first use and clip every border to the land: modern OpenHistoricalMap
+countries are outlines of territorial waters, which makes coastlines look like chains of circles.
+`npm run import:land` reloads the mask; `npm run clip` loads it and clips geometries that are already in the
+database (useful for a database imported before this existed; it takes a while on the full data set).
+
 Both imports work on their own and only reload their own source. Upgrading from an older
 snapshot-based database? Run `docker compose down -v` first and import again.
 
@@ -42,6 +48,8 @@ from the SQL function `polities_tile(z, x, y, query_params)` (the year is passed
 `/timeline?lat=&lon=` and `/history?lat=&lon=&levels=` (GeoJSON contours). The frontend (Vite +
 MapLibre GL, globe projection) renders the tiles and the panel. UI text lives in `apps/web/src/strings.ts`.
 Martin runs with its in-memory tile cache disabled (`--cache-size 0`) in `docker-compose.yml`: with the cache on it keeps serving the old tiles after an import until it is restarted. In production put an HTTP cache/CDN in front and purge it after an import.
+Every geometry is stored three times: full (tiles from z8), `geom_lookup` (~200 m tolerance: point lookups and z6-z7 tiles, so the
+hot data set is ~190 MB) and `geom_simple` (~2 km: z0-z5 tiles and the `/history` contours).
 OHM is loaded from the daily planet dump with `osm2pgsql` (Docker, `db/ohm.lua`) into a staging schema,
 then transformed by `scripts/import-ohm.ts`.
 

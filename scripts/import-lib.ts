@@ -22,9 +22,9 @@ interface Feature {
 const INSERT_FEATURE = `
 WITH g AS (
   SELECT ST_Multi(ST_CollectionExtract(
-    ST_Intersection(
+    clip_to_land(ST_Intersection(
       ST_MakeValid(ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON($1::text), 4326))),
-      ST_MakeEnvelope(-180, -85, 180, 85, 4326)),
+      ST_MakeEnvelope(-180, -85, 180, 85, 4326))),
     3)) AS geom
 ), keep AS (
   SELECT geom FROM g
@@ -36,8 +36,8 @@ WITH g AS (
   ON CONFLICT (name, admin_level) DO UPDATE SET name = EXCLUDED.name
   RETURNING id
 )
-INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, geom_simple, border_precision)
-SELECT p.id, 'hb', $7::float8, $8::float8, keep.geom, simplify_polygons(keep.geom), $9::smallint FROM p, keep`;
+INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, geom_simple, geom_lookup, border_precision)
+SELECT p.id, 'hb', $7::float8, $8::float8, keep.geom, simplify_polygons(keep.geom), simplify_lookup(keep.geom), $9::smallint FROM p, keep`;
 
 export async function importDirectory(
   pool: pg.Pool,

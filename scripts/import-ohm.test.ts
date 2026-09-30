@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { FIXTURE_DIR, clearAll, seedFixture, testPool } from '../db/test-support';
+import { importLand } from './import-land-lib';
 import { importOhmStaging } from './import-ohm-lib';
 
 const pool = testPool();
@@ -68,10 +69,26 @@ describe('importOhmStaging', () => {
     await importOhmStaging(pool);
     const r = await pool.query(
       `SELECT count(*) FILTER (WHERE geom_simple IS NULL OR NOT ST_IsValid(geom_simple)
-                                 OR ST_NPoints(geom_simple) > ST_NPoints(geom))::int AS bad
+                                 OR ST_NPoints(geom_simple) > ST_NPoints(geom)
+                                 OR geom_lookup IS NULL OR NOT ST_IsValid(geom_lookup)
+                                 OR ST_NPoints(geom_lookup) > ST_NPoints(geom))::int AS bad
        FROM polity_geometries WHERE source = 'ohm'`,
     );
     expect(r.rows[0].bad).toBe(0);
+  });
+
+  it('clips to the land when land is loaded and drops polygons entirely at sea', async () => {
+    await importLand(pool, path.join(FIXTURE_DIR, 'land', 'land.geojson'));
+    const result = await importOhmStaging(pool);
+    expect(result.imported).toBe(2); // Licensed Land (30..35) and Reich ohne Englisch (36..40) are in the sea
+    const r = await pool.query(
+      `SELECT p.name, round(ST_Area(g.geom)::numeric) AS area
+       FROM polity_geometries g JOIN polities p ON p.id = g.polity_id WHERE g.source = 'ohm' ORDER BY p.name`,
+    );
+    expect(r.rows).toEqual([
+      { name: 'Realm X', area: '70' },
+      { name: 'Region R', area: '25' }, // lon 0..5 x lat 40..45, fully on land
+    ]);
   });
 
   it('aborts and changes nothing when the staging table is missing', async () => {

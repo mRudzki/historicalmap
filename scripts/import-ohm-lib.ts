@@ -12,9 +12,9 @@ export interface OhmImportResult {
 const INSERT_GEOMETRY = `
 WITH g AS (
   SELECT ST_Multi(ST_CollectionExtract(
-    ST_Intersection(
+    clip_to_land(ST_Intersection(
       ST_MakeValid(ST_Force2D(geom)),
-      ST_MakeEnvelope(-180, -85, 180, 85, 4326)),
+      ST_MakeEnvelope(-180, -85, 180, 85, 4326))),
     3)) AS geom
   FROM ohm_stage.boundaries WHERE osm_id = $1
 ), keep AS (
@@ -25,8 +25,8 @@ WITH g AS (
   ON CONFLICT (name, admin_level) DO UPDATE SET name = EXCLUDED.name
   RETURNING id
 )
-INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, geom_simple)
-SELECT p.id, 'ohm', $4::float8, $5::float8, keep.geom, simplify_polygons(keep.geom) FROM p, keep`;
+INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, geom_simple, geom_lookup)
+SELECT p.id, 'ohm', $4::float8, $5::float8, keep.geom, simplify_polygons(keep.geom), simplify_lookup(keep.geom) FROM p, keep`;
 
 // Transforms ohm_stage.boundaries (loaded by osm2pgsql, see db/ohm.lua) into the final tables.
 // Reloads only source='ohm', in one transaction.

@@ -19,8 +19,18 @@ CREATE TABLE IF NOT EXISTS polity_geometries (
 
 -- Simplified copy (see simplify_polygons) so /history can union states quickly.
 ALTER TABLE polity_geometries ADD COLUMN IF NOT EXISTS geom_simple geometry(MultiPolygon, 4326);
+-- Light copy (~200 m tolerance) for point lookups and mid-zoom tiles: keeps the hot data set small.
+ALTER TABLE polity_geometries ADD COLUMN IF NOT EXISTS geom_lookup geometry(MultiPolygon, 4326);
 
+CREATE INDEX IF NOT EXISTS polity_geometries_lookup_idx
+  ON polity_geometries USING gist (geom_lookup);
 CREATE INDEX IF NOT EXISTS polity_geometries_geom_idx
   ON polity_geometries USING gist (geom);
 CREATE INDEX IF NOT EXISTS polity_geometries_time_idx
   ON polity_geometries (source, valid_from, valid_to);
+
+-- Land mask (Natural Earth), subdivided into small pieces so clipping stays fast (see clip_to_land).
+CREATE TABLE IF NOT EXISTS land (
+  geom geometry(Geometry, 4326) NOT NULL
+);
+CREATE INDEX IF NOT EXISTS land_geom_idx ON land USING gist (geom);

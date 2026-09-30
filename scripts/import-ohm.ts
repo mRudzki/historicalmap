@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import pg from 'pg';
 import { applySchema } from '../db/apply-schema';
+import { ensureLand } from './land-cli';
 import { importOhmStaging } from './import-ohm-lib';
 
 const url = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/historicalmap';
@@ -11,6 +12,7 @@ const skipLoad = process.env.OHM_SKIP_LOAD === '1'; // use an existing ohm_stage
 const pool = new pg.Pool({ connectionString: url });
 try {
   await applySchema(pool);
+  await ensureLand(pool);
   if (!skipLoad) {
     execFileSync('scripts/fetch-ohm.sh', { stdio: 'inherit' });
     await pool.query('DROP SCHEMA IF EXISTS ohm_stage CASCADE; CREATE SCHEMA ohm_stage;');

@@ -64,13 +64,13 @@ describe('polities_tile', () => {
     expect(decode(t, 'regions')[0]).toMatchObject({ name: 'Region R', level: 4 });
   });
 
-  it('uses the simplified geometry at low zoom and the full one at high zoom', async () => {
+  it('uses lighter geometry at low zoom (simple up to z5, lookup at z6-7) and the full one from z8', async () => {
     await pool.query("INSERT INTO polities (name, admin_level) VALUES ('Circle Land', 2)");
     await pool.query(
-      `INSERT INTO polity_geometries (polity_id, source, valid_from, geom, geom_simple)
-       SELECT p.id, 'ohm', 1500, g.geom, simplify_polygons(g.geom)
+      `INSERT INTO polity_geometries (polity_id, source, valid_from, geom, geom_simple, geom_lookup)
+       SELECT p.id, 'ohm', 1500, g.geom, simplify_polygons(g.geom), simplify_lookup(g.geom)
        FROM polities p,
-            LATERAL (SELECT ST_Multi(ST_Buffer(ST_SetSRID(ST_MakePoint(20.5, 43.0), 4326), 0.5, 'quad_segs=200')) AS geom) g
+            LATERAL (SELECT ST_Multi(ST_Buffer(ST_SetSRID(ST_MakePoint(20.5, 43.0), 4326), 0.2, 'quad_segs=200')) AS geom) g
        WHERE p.name = 'Circle Land'`,
     );
     const tileFor = (z: number, lon: number, lat: number) => {
@@ -91,9 +91,9 @@ describe('polities_tile', () => {
       throw new Error('Circle Land not found in the tile');
     };
     try {
-      const low = await vertices(4);
-      const high = await vertices(6);
-      expect(low).toBeLessThan(high / 5);
+      const full = await vertices(8);
+      expect(await vertices(4)).toBeLessThan(full / 5);
+      expect(await vertices(6)).toBeLessThan(full / 5);
     } finally {
       await pool.query("DELETE FROM polities WHERE name = 'Circle Land'");
     }

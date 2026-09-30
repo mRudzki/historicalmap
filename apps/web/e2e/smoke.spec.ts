@@ -172,12 +172,17 @@ test('legal pages are linked from the map and identify the operator', async ({ p
   await expect(main).toContainText('Michał Rudzki');
   await expect(main).toContainText('6452571170');
   await expect(main).toContainText('does not use cookies');
+  await expect(main).toContainText('does not show advertising');
+  await expect(main).not.toContainText('If advertising or analytics are added');
 
   await page.getByRole('link', { name: 'Legal notice' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Legal Notice');
   await expect(main).toContainText('GPL-3.0');
   await expect(main).toContainText('OpenHistoricalMap');
   await expect(main).toContainText('CC0');
+  await expect(main).toContainText('free of charge');
+  await expect(main).toContainText('no advertising');
+  await expect(main).toContainText('Natural Earth');
   await expect(main).toContainText('Historical Basemaps');
 
   await page.getByRole('link', { name: 'Back to the map' }).click();

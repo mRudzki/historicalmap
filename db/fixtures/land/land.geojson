@@ -1,0 +1,6 @@
+{"type":"FeatureCollection","features":[
+ {"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[0,40],[5,40],[5,50],[0,50],[0,40]]]}},
+ {"type":"Feature","properties":{},"geometry":{"type":"MultiPolygon","coordinates":[
+   [[[6,40],[10,40],[10,45],[6,45],[6,40]]],
+   [[[100,40],[110,40],[110,50],[100,50],[100,40]]]]}}
+]}

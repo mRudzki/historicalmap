@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 E2E_URL=postgres://postgres:postgres@localhost:5433/historicalmap_e2e
+export SKIP_LAND=1 # the fixtures are squares on purpose: no land mask, no clipping
 
 docker compose up -d --wait db
 docker compose exec -T db psql -U postgres -q -c "DROP DATABASE IF EXISTS historicalmap_e2e WITH (FORCE)" -c "CREATE DATABASE historicalmap_e2e"
