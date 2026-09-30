@@ -1,0 +1,16 @@
+services:
+  db:
+    image: ghcr.io/baosystems/postgis:17-3.5
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: historicalmap
+    ports: ["5433:5432"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1 -d historicalmap"]
+      interval: 3s
+      retries: 20
+volumes:
+  pgdata:

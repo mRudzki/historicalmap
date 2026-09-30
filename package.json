@@ -1,0 +1,23 @@
+{
+  "name": "historicalmap",
+  "private": true,
+  "type": "module",
+  "license": "GPL-3.0-only",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "test": "vitest run && npm test -w apps/web",
+    "typecheck": "tsc --noEmit -p . && tsc --noEmit -p apps/web",
+    "import": "tsx scripts/import.ts",
+    "start:api": "tsx apps/api/src/server.ts"
+  },
+  "devDependencies": {
+    "@mapbox/vector-tile": "^3.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.0.0",
+    "pbf": "^5.0.0",
+    "pg": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^7.0.0",
+    "vitest": "^5.0.0"
+  }
+}
