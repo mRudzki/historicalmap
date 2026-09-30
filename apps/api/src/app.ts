@@ -27,7 +27,9 @@ export function createApp(pool: pg.Pool): FastifyInstance {
   app.register(cors, { origin: true });
 
   const snapshotYears = async (): Promise<number[]> => {
-    const { rows } = await pool.query('SELECT year FROM snapshots ORDER BY year');
+    const { rows } = await pool.query(
+      "SELECT DISTINCT valid_from::int AS year FROM polity_geometries WHERE source = 'hb' ORDER BY 1",
+    );
     return rows.map((r) => r.year as number);
   };
 
@@ -40,28 +42,29 @@ export function createApp(pool: pg.Pool): FastifyInstance {
       return reply.code(400).send({ error: 'year out of range', min: years[0] ?? null, max: years.at(-1) ?? null });
     }
     const snap = await pool.query(
-      'SELECT s.id, s.year FROM snapshots s WHERE s.id = snapshot_for_year($1)',
+      "SELECT max(valid_from)::int AS year FROM polity_geometries WHERE source = 'hb' AND valid_from <= $1",
       [year],
     );
+    const snapshotYear = snap.rows[0].year as number;
     const { rows } = await pool.query(
-      `SELECT DISTINCT ON (p.id) p.id, p.name, p.subjecto,
+      `SELECT DISTINCT ON (p.id) p.id, p.name,
               g.border_precision AS "borderPrecision", polity_color(p.name) AS color
        FROM polity_geometries g JOIN polities p ON p.id = g.polity_id
-       WHERE g.snapshot_id = $3 AND ST_Intersects(g.geom, ${POINT})
+       WHERE g.source = 'hb' AND g.valid_from <= $3 AND (g.valid_to IS NULL OR g.valid_to > $3)
+         AND ST_Intersects(g.geom, ${POINT})
        ORDER BY p.id, g.border_precision DESC NULLS LAST`,
-      [lon, lat, snap.rows[0].id],
+      [lon, lat, year + 0.5],
     );
-    return { year, snapshotYear: snap.rows[0].year as number, polities: rows };
+    return { year, snapshotYear, polities: rows };
   });
 
   app.get('/timeline', { schema: timelineSchema }, async (req) => {
     const { lat, lon } = req.query as { lat: number; lon: number };
     const { rows } = await pool.query(
-      `SELECT DISTINCT p.name, polity_color(p.name) AS color, s.year
+      `SELECT DISTINCT p.name, polity_color(p.name) AS color, g.valid_from::int AS year
        FROM polity_geometries g
        JOIN polities p ON p.id = g.polity_id
-       JOIN snapshots s ON s.id = g.snapshot_id
-       WHERE ST_Intersects(g.geom, ${POINT})`,
+       WHERE g.source = 'hb' AND ST_Intersects(g.geom, ${POINT})`,
       [lon, lat],
     );
     return { periods: buildTimeline(rows, await snapshotYears()) };
@@ -73,12 +76,11 @@ export function createApp(pool: pg.Pool): FastifyInstance {
     const { lat, lon } = req.query as { lat: number; lon: number };
     const { rows } = await pool.query(
       `SELECT p.name, polity_color(p.name) AS color,
-              array_agg(DISTINCT s.year) AS years,
+              array_agg(DISTINCT g.valid_from::int) AS years,
               ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_Union(g.geom), 0.02))::json AS geometry
        FROM polity_geometries g
        JOIN polities p ON p.id = g.polity_id
-       JOIN snapshots s ON s.id = g.snapshot_id
-       WHERE ST_Intersects(g.geom, ${POINT})
+       WHERE g.source = 'hb' AND ST_Intersects(g.geom, ${POINT})
        GROUP BY p.id, p.name`,
       [lon, lat],
     );

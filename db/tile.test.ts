@@ -24,16 +24,6 @@ function decode(buf: Buffer) {
   return Array.from({ length: layer.length }, (_, i) => layer.feature(i).properties);
 }
 
-describe('snapshot_for_year', () => {
-  it('floors to the newest snapshot not after the year, else NULL', async () => {
-    const q = (y: number) => pool.query('SELECT s.year FROM snapshots s WHERE s.id = snapshot_for_year($1)', [y]);
-    expect((await q(1000)).rows[0].year).toBe(1000);
-    expect((await q(1099)).rows[0].year).toBe(1000);
-    expect((await q(1500)).rows[0].year).toBe(1100);
-    expect((await q(999)).rowCount).toBe(0);
-  });
-});
-
 describe('polity_color', () => {
   it('is stable, an hsl string, and grey for the unnamed sentinel', async () => {
     const { rows } = await pool.query(

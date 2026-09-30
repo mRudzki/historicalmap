@@ -13,12 +13,7 @@ export function parseSnapshotYear(filename: string): number | null {
 }
 
 interface Feature {
-  properties: {
-    NAME?: string | null;
-    SUBJECTO?: string | null;
-    PARTOF?: string | null;
-    BORDERPRECISION?: number | null;
-  };
+  properties: { NAME?: string | null; BORDERPRECISION?: number | null };
   geometry: unknown;
 }
 
@@ -36,15 +31,13 @@ WITH g AS (
   WHERE NOT ST_IsEmpty(geom)
     AND ST_Intersects(geom, ST_MakeEnvelope($2::float8, $3::float8, $4::float8, $5::float8, 4326))
 ), p AS (
-  INSERT INTO polities (name, subjecto, partof)
-  SELECT $6::text, $7::text, $8::text FROM keep
-  ON CONFLICT (name) DO UPDATE SET
-    subjecto = COALESCE(EXCLUDED.subjecto, polities.subjecto),
-    partof = COALESCE(EXCLUDED.partof, polities.partof)
+  INSERT INTO polities (name, admin_level)
+  SELECT $6::text, 2 FROM keep
+  ON CONFLICT (name, admin_level) DO UPDATE SET name = EXCLUDED.name
   RETURNING id
 )
-INSERT INTO polity_geometries (polity_id, snapshot_id, geom, border_precision)
-SELECT p.id, $9::int, keep.geom, $10::smallint FROM p, keep`;
+INSERT INTO polity_geometries (polity_id, source, valid_from, valid_to, geom, border_precision)
+SELECT p.id, 'hb', $7::float8, $8::float8, keep.geom, $9::smallint FROM p, keep`;
 
 export async function importDirectory(
   pool: pg.Pool,
@@ -71,22 +64,23 @@ export async function importDirectory(
   let features = 0;
   try {
     await client.query('BEGIN');
-    await client.query('TRUNCATE polity_geometries, snapshots, polities RESTART IDENTITY CASCADE');
-    for (const snap of parsed) {
-      const { rows } = await client.query('INSERT INTO snapshots (year) VALUES ($1) RETURNING id', [snap.year]);
-      const snapshotId: number = rows[0].id;
+    await client.query("DELETE FROM polity_geometries WHERE source = 'hb'");
+    for (const [i, snap] of parsed.entries()) {
+      const validTo = parsed[i + 1]?.year ?? null;
       for (const feat of snap.features) {
         if (!feat.geometry) continue;
         const p = feat.properties;
         const res = await client.query(INSERT_FEATURE, [
           JSON.stringify(feat.geometry),
           EUROPE_BBOX.west, EUROPE_BBOX.south, EUROPE_BBOX.east, EUROPE_BBOX.north,
-          p.NAME ?? UNNAMED, p.SUBJECTO ?? null, p.PARTOF ?? null,
-          snapshotId, p.BORDERPRECISION ?? null,
+          p.NAME ?? UNNAMED, snap.year, validTo, p.BORDERPRECISION ?? null,
         ]);
         features += res.rowCount ?? 0;
       }
     }
+    await client.query(
+      'DELETE FROM polities p WHERE NOT EXISTS (SELECT 1 FROM polity_geometries g WHERE g.polity_id = p.id)',
+    );
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');

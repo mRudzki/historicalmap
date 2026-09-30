@@ -26,14 +26,14 @@ describe('importDirectory', () => {
     const names = await pool.query('SELECT name FROM polities ORDER BY name');
     expect(names.rows.map((r) => r.name)).toEqual(['Kingdom A', 'Kingdom B', UNNAMED]);
 
-    const years = await pool.query('SELECT year FROM snapshots ORDER BY year');
+    const years = await pool.query('SELECT DISTINCT valid_from::int AS year FROM polity_geometries ORDER BY 1');
     expect(years.rows.map((r) => r.year)).toEqual([1000, 1100]);
   });
 
   it('honours minYear and stores BC years as negatives', async () => {
     const result = await importDirectory(pool, FIXTURE_DIR, { minYear: -1000 });
     expect(result.snapshots).toBe(3);
-    const years = await pool.query('SELECT year FROM snapshots ORDER BY year');
+    const years = await pool.query('SELECT DISTINCT valid_from::int AS year FROM polity_geometries ORDER BY 1');
     expect(years.rows.map((r) => r.year)).toEqual([-500, 1000, 1100]);
   });
 
@@ -87,6 +87,31 @@ describe('importDirectory', () => {
     await expect(importDirectory(pool, FIXTURE_DIR, { minYear: Number.NaN })).rejects.toThrow(/minYear/);
     const count = await pool.query('SELECT count(*)::int AS n FROM polity_geometries');
     expect(count.rows[0].n).toBe(5);
+  });
+
+  it('stores each snapshot as an interval up to the next snapshot; the last one is open', async () => {
+    await importDirectory(pool, FIXTURE_DIR);
+    const rows = await pool.query(
+      `SELECT p.name, g.source, p.admin_level, g.valid_from, g.valid_to
+       FROM polity_geometries g JOIN polities p ON p.id = g.polity_id
+       WHERE p.name = 'Kingdom B' ORDER BY g.valid_from, g.valid_to NULLS LAST`,
+    );
+    expect(rows.rows).toEqual([
+      { name: 'Kingdom B', source: 'hb', admin_level: 2, valid_from: 1000, valid_to: 1100 },
+      { name: 'Kingdom B', source: 'hb', admin_level: 2, valid_from: 1100, valid_to: null },
+      { name: 'Kingdom B', source: 'hb', admin_level: 2, valid_from: 1100, valid_to: null },
+    ]);
+  });
+
+  it('reloads only HB rows and keeps OHM rows', async () => {
+    await pool.query("INSERT INTO polities (name, admin_level) VALUES ('Ohm Realm', 2)");
+    await pool.query(
+      `INSERT INTO polity_geometries (polity_id, source, valid_from, geom)
+       VALUES (1, 'ohm', 1500, ST_Multi(ST_GeomFromText('POLYGON((0 40,1 40,1 41,0 41,0 40))',4326)))`,
+    );
+    await importDirectory(pool, FIXTURE_DIR);
+    const ohm = await pool.query("SELECT count(*)::int AS n FROM polity_geometries WHERE source = 'ohm'");
+    expect(ohm.rows[0].n).toBe(1);
   });
 
   it('rolls back completely when a file is broken', async () => {

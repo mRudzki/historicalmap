@@ -1,7 +1,4 @@
-CREATE OR REPLACE FUNCTION snapshot_for_year(y integer) RETURNS integer
-LANGUAGE sql STABLE AS $$
-  SELECT id FROM snapshots WHERE year <= y ORDER BY year DESC LIMIT 1
-$$;
+DROP FUNCTION IF EXISTS snapshot_for_year(integer);
 
 CREATE OR REPLACE FUNCTION polity_color(polity_name text) RETURNS text
 LANGUAGE sql IMMUTABLE AS $$
@@ -12,22 +9,19 @@ LANGUAGE sql IMMUTABLE AS $$
   END
 $$;
 
--- Martin function source: tile (z,x,y) for the snapshot valid in ?year=
+-- Martin function source: tile (z,x,y) for the HB polities valid in ?year=
 CREATE OR REPLACE FUNCTION polities_tile(z integer, x integer, y integer, query_params json DEFAULT '{}')
 RETURNS bytea LANGUAGE plpgsql STABLE PARALLEL SAFE AS $$
 DECLARE
   year_text text := query_params->>'year';
-  snap integer;
+  at_time double precision;
   bounds geometry := ST_TileEnvelope(z, x, y);
   result bytea;
 BEGIN
   IF year_text IS NULL OR year_text !~ '^-?[0-9]{1,6}$' THEN
     RETURN ''::bytea;
   END IF;
-  snap := snapshot_for_year(year_text::integer);
-  IF snap IS NULL THEN
-    RETURN ''::bytea;
-  END IF;
+  at_time := year_text::integer + 0.5;
 
   SELECT ST_AsMVT(t, 'polities', 4096, 'geom') INTO result
   FROM (
@@ -35,7 +29,9 @@ BEGIN
            ST_AsMVTGeom(ST_Transform(g.geom, 3857), bounds, 4096, 64, true) AS geom
     FROM polity_geometries g
     JOIN polities p ON p.id = g.polity_id
-    WHERE g.snapshot_id = snap AND g.geom && ST_Transform(bounds, 4326)
+    WHERE g.source = 'hb'
+      AND g.valid_from <= at_time AND (g.valid_to IS NULL OR g.valid_to > at_time)
+      AND g.geom && ST_Transform(bounds, 4326)
   ) t
   WHERE t.geom IS NOT NULL;
 
