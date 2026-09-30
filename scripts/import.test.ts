@@ -80,6 +80,15 @@ describe('importDirectory', () => {
     expect(result.features).toBe(1);
   });
 
+  it('refuses to import (and keeps existing data) when no snapshot files match', async () => {
+    await importDirectory(pool, FIXTURE_DIR);
+    const empty = await mkdtemp(path.join(os.tmpdir(), 'hm-'));
+    await expect(importDirectory(pool, empty)).rejects.toThrow(/no snapshot files/i);
+    await expect(importDirectory(pool, FIXTURE_DIR, { minYear: Number.NaN })).rejects.toThrow(/minYear/);
+    const count = await pool.query('SELECT count(*)::int AS n FROM polity_geometries');
+    expect(count.rows[0].n).toBe(5);
+  });
+
   it('rolls back completely when a file is broken', async () => {
     await importDirectory(pool, FIXTURE_DIR);
     const dir = await mkdtemp(path.join(os.tmpdir(), 'hm-'));

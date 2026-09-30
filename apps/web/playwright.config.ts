@@ -8,7 +8,7 @@ export default defineConfig({
     launchOptions: { args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
   },
   webServer: {
-    command: 'npm run dev',
+    command: 'npm run build && npm run preview -- --port 5174 --strictPort',
     url: 'http://localhost:5174',
     reuseExistingServer: true,
   },

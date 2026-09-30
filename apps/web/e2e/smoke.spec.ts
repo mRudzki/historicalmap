@@ -24,3 +24,9 @@ test('click shows the polity, slider changes the year', async ({ page }) => {
   await canvas.click({ position: center });
   await expect(page.locator('#panel')).toContainText('Kingdom A');
 });
+
+test('shows a message instead of a blank page when the API is down', async ({ page }) => {
+  await page.route('**/snapshots', (route) => route.abort());
+  await page.goto('/');
+  await expect(page.locator('#year-label')).toContainText('Nie udało się');
+});

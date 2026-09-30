@@ -52,10 +52,13 @@ export async function importDirectory(
   opts: { minYear?: number } = {},
 ): Promise<{ snapshots: number; features: number }> {
   const minYear = opts.minYear ?? 1;
+  if (!Number.isFinite(minYear)) throw new Error(`Invalid minYear: ${opts.minYear}`);
   const files = (await readdir(dir))
     .map((name) => ({ name, year: parseSnapshotYear(name) }))
     .filter((f): f is { name: string; year: number } => f.year !== null && f.year >= minYear)
     .sort((a, b) => a.year - b.year);
+
+  if (files.length === 0) throw new Error(`No snapshot files (world_<year>.geojson) found in ${dir}`);
 
   // Parse everything before touching the DB so a broken file cannot half-import.
   const parsed: { year: number; features: Feature[] }[] = [];

@@ -18,13 +18,15 @@ npm run import                   # ładuje dane do bazy
 npm run dev -w apps/web          # http://localhost:5174
 ```
 
+Domyślnie importowane są migawki od roku 1 n.e.; zmienna `MIN_YEAR` (np. `MIN_YEAR=-500`) dodaje starsze.
+
 Porty: baza `5433`, Martin `3100`, API `3001`, frontend `5174`
 (zmienne `VITE_API_URL` i `VITE_TILES_URL` pozwalają je zmienić we frontendzie).
 
 ## Architektura
 
 PostGIS przechowuje migawki granic. Martin streamuje kafelki wektorowe (MVT) z funkcji SQL
-`polities_tile(z, x, y, year)`. Cienkie API (Fastify) odpowiada na zapytania
+`polities_tile(z, x, y, query_params)` (rok w parametrze `?year=`). Cienkie API (Fastify) odpowiada na zapytania
 `/snapshots`, `/at?lat=&lon=&year=` i `/timeline?lat=&lon=`. Frontend (Vite + MapLibre GL,
 projekcja globe) rysuje kafelki i panel.
 
@@ -34,9 +36,10 @@ projekcja globe) rysuje kafelki i panel.
 docker compose up -d --wait db
 npm test                 # backend (Vitest + PostGIS) i logika frontendu
 npm run typecheck
-# e2e (wymaga uruchomionego stosu i zaimportowanych danych testowych):
-DATA_DIR=db/fixtures npm run import
+# e2e (wymaga uruchomionego stosu i danych testowych, testuje build produkcyjny):
+DATA_DIR=db/fixtures npm run import   # UWAGA: zastępuje dane w bazie danymi testowymi
 cd apps/web && npx playwright test
+npm run import                         # potem przywróć prawdziwe dane
 ```
 
 ## Dane

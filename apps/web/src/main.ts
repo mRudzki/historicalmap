@@ -5,6 +5,11 @@ import { TILES_URL, fetchAt, fetchSnapshots, fetchTimeline } from './api';
 import { formatYear, tileUrl } from './format';
 import { renderPanel } from './panel';
 
+// Production: the worker is emitted by the maplibreWorker plugin in vite.config.ts (dev needs nothing).
+if (import.meta.env.PROD) {
+  maplibregl.setWorkerUrl(new URL('maplibre/maplibre-gl-worker.mjs', document.baseURI).href);
+}
+
 const params = new URLSearchParams(location.search);
 const center: [number, number] = [Number(params.get('lng') ?? 12), Number(params.get('lat') ?? 50)];
 const zoom = Number(params.get('zoom') ?? 3);
@@ -14,7 +19,13 @@ const panel = document.getElementById('panel') as HTMLElement;
 const slider = document.getElementById('slider') as HTMLInputElement;
 const yearLabel = document.getElementById('year-label') as HTMLElement;
 
-const years = await fetchSnapshots();
+let years: number[];
+try {
+  years = await fetchSnapshots();
+} catch {
+  yearLabel.textContent = 'Nie udało się połączyć z serwerem. Odśwież stronę za chwilę.';
+  throw new Error('API unavailable');
+}
 if (years.length === 0) {
   yearLabel.textContent = 'brak danych — uruchom import';
   throw new Error('No snapshots in the database');
