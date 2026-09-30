@@ -1,8 +1,9 @@
 import * as maplibregl from 'maplibre-gl';
+import type { LayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
-import { TILES_URL, fetchAt, fetchHistory, fetchSnapshots, fetchTimeline } from './api';
-import { formatYear, tileUrl } from './format';
+import { TILES_URL, fetchAt, fetchHistory, fetchRange, fetchTimeline } from './api';
+import { clampYear, formatYear, tileUrl } from './format';
 import { PinLayer, HISTORY_SOURCE, emptyHistory, historyLayers } from './pin-mode';
 import { renderHistoryPanel, renderPanel } from './panel';
 import { t } from './strings';
@@ -23,28 +24,56 @@ const yearLabel = document.getElementById('year-label') as HTMLElement;
 const controls = document.getElementById('controls') as HTMLElement;
 const modeYear = document.getElementById('mode-year') as HTMLButtonElement;
 const modePin = document.getElementById('mode-pin') as HTMLButtonElement;
+const yearInput = document.getElementById('year-input') as HTMLInputElement;
+const regionsBox = document.getElementById('regions') as HTMLInputElement;
 
-let years: number[];
+let range: { min: number | null; max: number | null };
 try {
-  years = await fetchSnapshots();
+  range = await fetchRange();
 } catch {
   yearLabel.textContent = t.serverUnreachable;
   throw new Error('API unavailable');
 }
-if (years.length === 0) {
+if (range.min === null || range.max === null) {
   yearLabel.textContent = t.noImportedData;
-  throw new Error('No snapshots in the database');
+  throw new Error('No data in the database');
 }
+const { min, max } = { min: range.min, max: range.max };
 
-slider.max = String(years.length - 1);
-slider.value = String(years.length - 1);
-const currentYear = () => years[Number(slider.value)];
-const showYear = () => (yearLabel.textContent = formatYear(currentYear()));
+let year = max;
+slider.min = yearInput.min = String(min);
+slider.max = yearInput.max = String(max);
+const showYear = () => {
+  slider.value = yearInput.value = String(year);
+  yearLabel.textContent = formatYear(year);
+};
 showYear();
 
 const source = 'polities';
+// HB fallback is drawn paler (approximate) under the opaque OHM fill.
+const FILL_LAYERS = [
+  { id: 'fallback-fill', layer: 'fallback', opacity: 0.55 },
+  { id: 'polity-fill', layer: 'polities', opacity: 1 },
+] as const;
 const attribution =
-  'Borders: <a href="https://github.com/aourednik/historical-basemaps">Historical Basemaps</a> (GPL-3.0)';
+  'Borders: <a href="https://www.openhistoricalmap.org/">OpenHistoricalMap</a> (CC0), <a href="https://github.com/aourednik/historical-basemaps">Historical Basemaps</a> (GPL-3.0)';
+
+const fillLayer = (id: string, layer: string, opacity: number): LayerSpecification => ({
+  id, type: 'fill', source, 'source-layer': layer,
+  paint: { 'fill-color': ['get', 'color'], 'fill-opacity': opacity },
+});
+const lineLayers = (layer: string): LayerSpecification[] => [
+  {
+    id: `${layer}-line-precise`, type: 'line', source, 'source-layer': layer,
+    filter: ['!=', ['get', 'border_precision'], 1],
+    paint: { 'line-color': '#444', 'line-width': 0.8 },
+  },
+  {
+    id: `${layer}-line-approx`, type: 'line', source, 'source-layer': layer,
+    filter: ['==', ['get', 'border_precision'], 1],
+    paint: { 'line-color': '#444', 'line-width': 0.8, 'line-dasharray': [3, 2] },
+  },
+];
 
 const map = new maplibregl.Map({
   container: mapEl,
@@ -54,24 +83,17 @@ const map = new maplibregl.Map({
     version: 8,
     projection: { type: 'globe' },
     sources: {
-      [source]: { type: 'vector', tiles: [tileUrl(TILES_URL, currentYear())], minzoom: 0, maxzoom: 8, attribution },
+      [source]: { type: 'vector', tiles: [tileUrl(TILES_URL, year)], minzoom: 0, maxzoom: 8, attribution },
       [HISTORY_SOURCE]: { type: 'geojson', data: emptyHistory as never },
     },
     layers: [
       { id: 'ocean', type: 'background', paint: { 'background-color': '#bcd7e6' } },
+      ...FILL_LAYERS.map((l) => fillLayer(l.id, l.layer, l.opacity)),
+      ...lineLayers('fallback'),
+      ...lineLayers('polities'),
       {
-        id: 'polity-fill', type: 'fill', source, 'source-layer': 'polities',
-        paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.85 },
-      },
-      {
-        id: 'polity-line-precise', type: 'line', source, 'source-layer': 'polities',
-        filter: ['!=', ['get', 'border_precision'], 1],
-        paint: { 'line-color': '#444', 'line-width': 0.8 },
-      },
-      {
-        id: 'polity-line-approx', type: 'line', source, 'source-layer': 'polities',
-        filter: ['==', ['get', 'border_precision'], 1],
-        paint: { 'line-color': '#444', 'line-width': 0.8, 'line-dasharray': [3, 2] },
+        id: 'regions-line', type: 'line', source, 'source-layer': 'regions', layout: { visibility: 'none' },
+        paint: { 'line-color': '#666', 'line-width': 0.7, 'line-dasharray': [1, 2] },
       },
       ...historyLayers,
     ],
@@ -81,13 +103,21 @@ const map = new maplibregl.Map({
 // Test hook: lets the e2e test check that tiles are actually rendered.
 (window as unknown as { __map: maplibregl.Map }).__map = map;
 
-const setTiles = (year: number) =>
-  (map.getSource(source) as maplibregl.VectorTileSource).setTiles([tileUrl(TILES_URL, year)]);
+let tilesTimer: ReturnType<typeof setTimeout> | undefined;
+const setTiles = (y: number) =>
+  (map.getSource(source) as maplibregl.VectorTileSource).setTiles([tileUrl(TILES_URL, y)]);
+const setTilesSoon = (y: number) => {
+  clearTimeout(tilesTimer);
+  tilesTimer = setTimeout(() => setTiles(y), 150);
+};
 
 const pin = new PinLayer(map);
 type Mode = 'year' | 'pin';
 let mode: Mode = 'year';
 let latestClick = 0; // ignore responses of clicks that were superseded
+
+const setRegionsLayer = () =>
+  map.setLayoutProperty('regions-line', 'visibility', regionsBox.checked && mode === 'year' ? 'visible' : 'none');
 
 function setMode(next: Mode): void {
   mode = next;
@@ -99,35 +129,40 @@ function setMode(next: Mode): void {
   pin.setVisible(next === 'pin');
   if (next === 'pin') {
     // Neutral, modern-day land as context so the coloured contours stay readable.
-    setTiles(years[years.length - 1]);
-    map.setPaintProperty('polity-fill', 'fill-color', '#e2e2e2');
+    setTiles(max);
+    for (const l of FILL_LAYERS) map.setPaintProperty(l.id, 'fill-color', '#e2e2e2');
   } else {
     pin.clear();
-    setTiles(currentYear());
-    map.setPaintProperty('polity-fill', 'fill-color', ['get', 'color']);
+    setTiles(year);
+    for (const l of FILL_LAYERS) map.setPaintProperty(l.id, 'fill-color', ['get', 'color']);
   }
+  setRegionsLayer();
 }
 modeYear.addEventListener('click', () => setMode('year'));
 modePin.addEventListener('click', () => setMode('pin'));
 
-slider.addEventListener('input', () => {
+function setYear(next: number): void {
+  year = next;
   showYear();
-  setTiles(currentYear());
-});
+  if (mode === 'year') setTilesSoon(year);
+}
+slider.addEventListener('input', () => setYear(Number(slider.value)));
+yearInput.addEventListener('change', () => setYear(clampYear(yearInput.value, min, max, year)));
+regionsBox.addEventListener('change', setRegionsLayer);
 
 map.on('click', async (e) => {
   const { lat, lng } = e.lngLat.wrap();
   const id = ++latestClick;
   try {
     if (mode === 'pin') {
-      const history = await fetchHistory(lat, lng);
+      const history = await fetchHistory(lat, lng, regionsBox.checked);
       if (id !== latestClick) return;
       pin.show([lng, lat], history);
       renderHistoryPanel(panel, history.features, (name) => pin.highlight(name));
     } else {
-      const [at, periods] = await Promise.all([fetchAt(lat, lng, currentYear()), fetchTimeline(lat, lng)]);
+      const [at, periods] = await Promise.all([fetchAt(lat, lng, year), fetchTimeline(lat, lng)]);
       if (id !== latestClick) return;
-      renderPanel(panel, at, periods);
+      renderPanel(panel, at, periods, regionsBox.checked);
     }
   } catch {
     if (id !== latestClick) return;

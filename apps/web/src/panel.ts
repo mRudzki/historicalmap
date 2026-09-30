@@ -1,4 +1,4 @@
-import type { AtResponse, HistoryFeature, Period } from './api';
+import type { AtResponse, HistoryFeature, Period, PolityAt } from './api';
 import { formatYear, polityLabel } from './format';
 import { t } from './strings';
 
@@ -19,24 +19,35 @@ function heading(tag: 'h2' | 'h3', text: string): HTMLElement {
   return el;
 }
 
-export function renderPanel(el: HTMLElement, at: AtResponse, periods: Period[]): void {
+function approx(li: HTMLLIElement, source: 'ohm' | 'hb'): HTMLLIElement {
+  if (source === 'hb') {
+    const note = document.createElement('span');
+    note.className = 'approx';
+    note.textContent = t.approximate;
+    li.append(note);
+  }
+  return li;
+}
+
+function polityItem(p: PolityAt, indent: boolean): HTMLLIElement {
+  const li = approx(item(p.color, polityLabel(p.name)), p.source);
+  if (indent) li.classList.add('indent');
+  return li;
+}
+
+export function renderPanel(el: HTMLElement, at: AtResponse, periods: Period[], showRegions: boolean): void {
   el.replaceChildren();
   el.hidden = false;
 
   el.append(heading('h2', t.inYear(formatYear(at.year))));
-  if (at.snapshotYear !== null && at.snapshotYear !== at.year) {
-    const note = document.createElement('p');
-    note.className = 'muted';
-    note.textContent = t.closestMap(formatYear(at.snapshotYear));
-    el.append(note);
-  }
   if (at.polities.length === 0) {
     const none = document.createElement('p');
     none.textContent = t.noDataYear;
     el.append(none);
   } else {
     const ul = document.createElement('ul');
-    for (const p of at.polities) ul.append(item(p.color, polityLabel(p.name)));
+    for (const p of at.polities) ul.append(polityItem(p, false));
+    if (showRegions) for (const r of at.regions) ul.append(polityItem(r, true));
     el.append(ul);
   }
 
@@ -44,7 +55,7 @@ export function renderPanel(el: HTMLElement, at: AtResponse, periods: Period[]):
   const ul = document.createElement('ul');
   for (const p of periods) {
     const to = p.to === null ? t.present : formatYear(p.to);
-    ul.append(item(p.color, `${polityLabel(p.name)}: ${formatYear(p.from)} – ${to}`));
+    ul.append(approx(item(p.color, `${polityLabel(p.name)}: ${formatYear(p.from)} – ${to}`), p.source));
   }
   el.append(ul);
 }
@@ -70,7 +81,11 @@ export function renderHistoryPanel(
   }
   const ul = document.createElement('ul');
   for (const f of features) {
-    const li = item(f.properties.color, `${polityLabel(f.properties.name)}: ${periodsText(f.properties.periods)}`);
+    const li = approx(
+      item(f.properties.color, `${polityLabel(f.properties.name)}: ${periodsText(f.properties.periods)}`),
+      f.properties.source,
+    );
+    if (f.properties.level > 2) li.classList.add('indent');
     li.dataset.name = f.properties.name;
     li.addEventListener('mouseenter', () => onHover(f.properties.name));
     li.addEventListener('mouseleave', () => onHover(null));

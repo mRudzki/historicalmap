@@ -21,3 +21,7 @@ html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
 .legal-links { position: absolute; left: 16px; bottom: 6px; z-index: 1; display: flex; gap: 12px;
   font-size: 12px; }
 .legal-links a { color: #234; text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
+#year-input { width: 5.5em; }
+.regions-toggle { white-space: nowrap; font-size: .9rem; }
+#panel li.indent { margin-left: 16px; }
+.approx { color: #666; font-size: .8rem; }

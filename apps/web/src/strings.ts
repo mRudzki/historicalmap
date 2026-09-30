@@ -5,6 +5,7 @@ export const t = {
   pin: 'Pin',
   mode: 'Mode',
   present: 'present',
+  approximate: '(approximate)',
   lackOfData: 'Lack of data',
   bc: 'BC',
   inYear: (year: string) => `In ${year}`,

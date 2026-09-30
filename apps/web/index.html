@@ -19,8 +19,11 @@
       <a href="https://github.com/mRudzki/historicalmap" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
     <footer id="controls">
-      <label for="slider">Year: <strong id="year-label"></strong></label>
+      <label for="slider">Year:</label>
       <input id="slider" type="range" min="0" max="0" step="1" value="0" />
+      <input id="year-input" type="number" aria-label="Year" step="1" />
+      <strong id="year-label"></strong>
+      <label class="regions-toggle"><input id="regions" type="checkbox" /> Regions</label>
     </footer>
   </body>
 </html>

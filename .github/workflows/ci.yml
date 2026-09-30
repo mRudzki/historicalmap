@@ -27,6 +27,8 @@ jobs:
       - run: npm ci
       - run: docker compose up -d --build --wait db martin api
       - run: DATA_DIR=db/fixtures npm run import
+      - run: docker compose exec -T db psql -U postgres -d historicalmap < db/fixtures/ohm/staging.sql
+      - run: OHM_SKIP_LOAD=1 npm run import:ohm
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
         working-directory: apps/web

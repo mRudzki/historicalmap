@@ -12,11 +12,11 @@ const hidden = { visibility: 'none' } as const;
 export const historyLayers: LayerSpecification[] = [
   {
     id: 'history-fill', type: 'fill', source: HISTORY_SOURCE, layout: hidden,
-    paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.15 },
+    paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['case', ['==', ['get', 'level'], 2], 0.15, 0.06] },
   },
   {
     id: 'history-line', type: 'line', source: HISTORY_SOURCE, layout: hidden,
-    paint: { 'line-color': ['get', 'color'], 'line-width': 1.5 },
+    paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['==', ['get', 'level'], 2], 1.5, 0.8] },
   },
   {
     id: 'history-highlight', type: 'line', source: HISTORY_SOURCE, layout: hidden,
