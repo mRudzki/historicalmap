@@ -1,4 +1,4 @@
-import type { AtResponse, Period } from './api';
+import type { AtResponse, HistoryFeature, Period } from './api';
 import { formatYear, polityLabel } from './format';
 
 function item(color: string, text: string): HTMLLIElement {
@@ -44,6 +44,36 @@ export function renderPanel(el: HTMLElement, at: AtResponse, periods: Period[]):
   for (const p of periods) {
     const to = p.to === null ? 'dziś' : formatYear(p.to);
     ul.append(item(p.color, `${polityLabel(p.name)}: ${formatYear(p.from)} – ${to}`));
+  }
+  el.append(ul);
+}
+
+function periodsText(periods: { from: number; to: number | null }[]): string {
+  return periods.map((p) => `${formatYear(p.from)} – ${p.to === null ? 'dziś' : formatYear(p.to)}`).join(', ');
+}
+
+// Pin mode: every polity that ever held the place; hovering a row highlights its contour.
+export function renderHistoryPanel(
+  el: HTMLElement,
+  features: HistoryFeature[],
+  onHover: (name: string | null) => void,
+): void {
+  el.replaceChildren();
+  el.hidden = false;
+  el.append(heading('h2', 'Historia tego miejsca'));
+  if (features.length === 0) {
+    const none = document.createElement('p');
+    none.textContent = 'Brak danych dla tego miejsca.';
+    el.append(none);
+    return;
+  }
+  const ul = document.createElement('ul');
+  for (const f of features) {
+    const li = item(f.properties.color, `${polityLabel(f.properties.name)}: ${periodsText(f.properties.periods)}`);
+    li.dataset.name = f.properties.name;
+    li.addEventListener('mouseenter', () => onHover(f.properties.name));
+    li.addEventListener('mouseleave', () => onHover(null));
+    ul.append(li);
   }
   el.append(ul);
 }

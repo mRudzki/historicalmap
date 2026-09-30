@@ -4,6 +4,10 @@ Kliknij punkt na mapie lub globusie Europy i zobacz, do jakiego państwa lub two
 przedpaństwowego to miejsce należało. Suwak roku koloruje granice (każdy twór ma inny
 kolor), a panel po kliknięciu pokazuje historię danego miejsca w czasie.
 
+Dwa tryby: **Rok** (suwak roku, klik pokazuje twór z danego roku i historię miejsca) oraz
+**Pin** (klik stawia pinezkę i rysuje kontury wszystkich tworów, do których to miejsce
+kiedykolwiek należało, z lekkim wypełnieniem).
+
 Projekt edukacyjny: granice są przybliżone.
 
 ## Szybki start
@@ -27,7 +31,7 @@ Porty: baza `5433`, Martin `3100`, API `3001`, frontend `5174`
 
 PostGIS przechowuje migawki granic. Martin streamuje kafelki wektorowe (MVT) z funkcji SQL
 `polities_tile(z, x, y, query_params)` (rok w parametrze `?year=`). Cienkie API (Fastify) odpowiada na zapytania
-`/snapshots`, `/at?lat=&lon=&year=` i `/timeline?lat=&lon=`. Frontend (Vite + MapLibre GL,
+`/snapshots`, `/at?lat=&lon=&year=`, `/timeline?lat=&lon=` i `/history?lat=&lon=` (kontury GeoJSON). Frontend (Vite + MapLibre GL,
 projekcja globe) rysuje kafelki i panel.
 
 ## Testy

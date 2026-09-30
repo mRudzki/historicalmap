@@ -16,3 +16,20 @@ export const fetchAt = (lat: number, lon: number, year: number) =>
   getJson<AtResponse>(`/at?lat=${lat}&lon=${lon}&year=${year}`);
 export const fetchTimeline = (lat: number, lon: number) =>
   getJson<{ periods: Period[] }>(`/timeline?lat=${lat}&lon=${lon}`).then((r) => r.periods);
+
+export interface HistoryProperties {
+  name: string;
+  color: string;
+  from: number;
+  to: number | null;
+  periods: { from: number; to: number | null }[];
+}
+export interface HistoryFeature {
+  type: 'Feature';
+  properties: HistoryProperties;
+  geometry: { type: 'Polygon' | 'MultiPolygon'; coordinates: unknown };
+}
+export interface HistoryCollection { type: 'FeatureCollection'; features: HistoryFeature[] }
+
+export const fetchHistory = (lat: number, lon: number) =>
+  getJson<HistoryCollection>(`/history?lat=${lat}&lon=${lon}`);

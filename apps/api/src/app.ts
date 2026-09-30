@@ -67,5 +67,42 @@ export function createApp(pool: pg.Pool): FastifyInstance {
     return { periods: buildTimeline(rows, await snapshotYears()) };
   });
 
+  // One contour per polity that ever held the point: the union of that polity's geometries
+  // from the snapshots containing it (simplified to keep the payload small).
+  app.get('/history', { schema: timelineSchema }, async (req) => {
+    const { lat, lon } = req.query as { lat: number; lon: number };
+    const { rows } = await pool.query(
+      `SELECT p.name, polity_color(p.name) AS color,
+              array_agg(DISTINCT s.year) AS years,
+              ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_Union(g.geom), 0.02))::json AS geometry
+       FROM polity_geometries g
+       JOIN polities p ON p.id = g.polity_id
+       JOIN snapshots s ON s.id = g.snapshot_id
+       WHERE ST_Intersects(g.geom, ${POINT})
+       GROUP BY p.id, p.name`,
+      [lon, lat],
+    );
+    const allYears = await snapshotYears();
+    const features = rows.map((r) => {
+      const periods = buildTimeline(
+        (r.years as number[]).map((year) => ({ name: r.name, color: r.color, year })),
+        allYears,
+      );
+      return {
+        type: 'Feature' as const,
+        properties: {
+          name: r.name as string,
+          color: r.color as string,
+          from: periods[0].from,
+          to: periods[periods.length - 1].to,
+          periods: periods.map(({ from, to }) => ({ from, to })),
+        },
+        geometry: r.geometry,
+      };
+    });
+    features.sort((a, b) => a.properties.from - b.properties.from || a.properties.name.localeCompare(b.properties.name));
+    return { type: 'FeatureCollection' as const, features };
+  });
+
   return app;
 }

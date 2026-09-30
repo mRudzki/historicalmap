@@ -30,3 +30,27 @@ test('shows a message instead of a blank page when the API is down', async ({ pa
   await page.goto('/');
   await expect(page.locator('#year-label')).toContainText('Nie udało się');
 });
+
+test('pin mode drops a pin and outlines every polity that ever held the place', async ({ page }) => {
+  await page.goto('/?lat=45&lng=7&zoom=5');
+  await page.waitForFunction(
+    () => (window as any).__map.queryRenderedFeatures({ layers: ['polity-fill'] }).length > 0,
+  );
+  await page.getByRole('button', { name: 'Pin' }).click();
+  await expect(page.locator('#slider')).toBeHidden();
+
+  const canvas = page.locator('#map canvas');
+  const box = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: box.width / 2, y: box.height / 2 } });
+
+  await expect(page.locator('.maplibregl-marker')).toBeVisible();
+  await page.waitForFunction(
+    () => (window as any).__map.queryRenderedFeatures({ layers: ['history-line'] }).length > 0,
+  );
+  await expect(page.locator('#panel')).toContainText('Kingdom A');
+  await expect(page.locator('#panel')).toContainText('Kingdom B');
+
+  await page.getByRole('button', { name: 'Rok' }).click();
+  await expect(page.locator('.maplibregl-marker')).toHaveCount(0);
+  await expect(page.locator('#slider')).toBeVisible();
+});

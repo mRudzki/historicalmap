@@ -92,6 +92,50 @@ describe('GET /timeline', () => {
   });
 });
 
+describe('GET /history', () => {
+  it('returns one contour per polity that ever held the point, with its span', async () => {
+    const res = await get('/history?lat=45&lon=7');
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.type).toBe('FeatureCollection');
+    expect(body.features.map((f: { properties: unknown }) => f.properties)).toEqual([
+      { name: 'Kingdom A', color: expect.stringMatching(/^hsl/), from: 1000, to: 1100,
+        periods: [{ from: 1000, to: 1100 }] },
+      { name: 'Kingdom B', color: expect.stringMatching(/^hsl/), from: 1000, to: null,
+        periods: [{ from: 1000, to: null }] },
+    ]);
+    for (const f of body.features) {
+      expect(f.type).toBe('Feature');
+      expect(['Polygon', 'MultiPolygon']).toContain(f.geometry.type);
+    }
+  });
+
+  it('unions a polity\'s several features into a single contour', async () => {
+    const res = await get('/history?lat=45&lon=8');
+    const b = res.json().features.filter((f: { properties: { name: string } }) => f.properties.name === 'Kingdom B');
+    expect(b).toHaveLength(1);
+  });
+
+  it('contour covers the whole polity, not just the clicked spot', async () => {
+    const res = await get('/history?lat=45&lon=2');
+    const a = res.json().features[0];
+    const lons = JSON.stringify(a.geometry.coordinates).match(/-?\d+(\.\d+)?/g)!.filter((_: string, i: number) => i % 2 === 0).map(Number);
+    expect(Math.min(...lons)).toBe(0);
+    expect(Math.max(...lons)).toBe(10);
+  });
+
+  it('returns 200 with no features for the sea', async () => {
+    const res = await get('/history?lat=0&lon=-30');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ type: 'FeatureCollection', features: [] });
+  });
+
+  it('rejects out-of-range coordinates', async () => {
+    expect((await get('/history?lat=45&lon=181')).statusCode).toBe(400);
+    expect((await get('/history?lat=95&lon=0')).statusCode).toBe(400);
+  });
+});
+
 describe('empty database', () => {
   it('returns no snapshots and 400 on /at', async () => {
     await clearAll(pool);
