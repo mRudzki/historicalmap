@@ -109,6 +109,8 @@ test('legal pages are linked from the map and identify the operator', async ({ p
   await page.getByRole('link', { name: 'Legal notice' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Legal Notice');
   await expect(main).toContainText('GPL-3.0');
+  await expect(main).toContainText('OpenHistoricalMap');
+  await expect(main).toContainText('CC0');
   await expect(main).toContainText('Historical Basemaps');
 
   await page.getByRole('link', { name: 'Back to the map' }).click();

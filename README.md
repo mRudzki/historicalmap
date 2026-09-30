@@ -17,23 +17,32 @@ Requires Docker and Node 24.
 docker compose up -d --wait      # PostGIS, Martin (tiles), API
 scripts/fetch-data.sh            # downloads Historical Basemaps into data/
 npm install
-npm run import                   # loads the data into the database
+npm run import                   # loads Historical Basemaps (approximate, fallback)
+npm run import:ohm               # loads OpenHistoricalMap (preferred): downloads ~1.3 GB, needs Docker, ~10 min
 npm run dev -w apps/web          # http://localhost:5174
 ```
 
-By default snapshots from year 1 AD onwards are imported; set `MIN_YEAR` (e.g. `MIN_YEAR=-500`)
-to include older ones.
+Both imports work on their own and only reload their own source. Upgrading from an older
+snapshot-based database? Run `docker compose down -v` first and import again.
+
+By default Historical Basemaps snapshots from year 1 AD onwards are imported, and OpenHistoricalMap
+periods that ended before year 1 are dropped; set `MIN_YEAR` (e.g. `MIN_YEAR=-500`) to change both.
 
 Ports: database `5433`, Martin `3100`, API `3001`, frontend `5174`
 (`VITE_API_URL` and `VITE_TILES_URL` override the frontend's backends).
 
 ## Architecture
 
-PostGIS stores the border snapshots. Martin streams vector tiles (MVT) from the SQL function
-`polities_tile(z, x, y, query_params)` (the year is passed as `?year=`). A thin Fastify API
-answers `/snapshots`, `/at?lat=&lon=&year=`, `/timeline?lat=&lon=` and `/history?lat=&lon=`
-(GeoJSON contours). The frontend (Vite + MapLibre GL, globe projection) renders the tiles and the panel.
-UI text lives in `apps/web/src/strings.ts`.
+PostGIS stores every border as a time interval (`valid_from`/`valid_to`, decimal years) with a
+`source` (`ohm` or `hb`) and an `admin_level` (2 = state, 3-4 = regions). OpenHistoricalMap wins;
+Historical Basemaps fills the gaps: on the map the HB layer (`fallback`) is drawn under the OHM layer
+(`polities`), and the API resolves the same precedence per place and date. Martin streams vector tiles (MVT)
+from the SQL function `polities_tile(z, x, y, query_params)` (the year is passed as `?year=`; layers
+`fallback`, `polities`, `regions`). A thin Fastify API answers `/range`, `/at?lat=&lon=&year=`,
+`/timeline?lat=&lon=` and `/history?lat=&lon=&levels=` (GeoJSON contours). The frontend (Vite +
+MapLibre GL, globe projection) renders the tiles and the panel. UI text lives in `apps/web/src/strings.ts`.
+OHM is loaded from the daily planet dump with `osm2pgsql` (Docker, `db/ohm.lua`) into a staging schema,
+then transformed by `scripts/import-ohm.ts`.
 
 ## Tests
 
@@ -42,16 +51,20 @@ docker compose up -d --wait db
 npm test                 # backend (Vitest + PostGIS) and frontend logic
 npm run typecheck
 # e2e (needs the running stack and test data; tests the production build):
-DATA_DIR=db/fixtures npm run import   # NOTE: replaces the database contents with test data
+DATA_DIR=db/fixtures npm run import   # NOTE: replaces the HB rows with test data
+docker compose exec -T db psql -U postgres -d historicalmap < db/fixtures/ohm/staging.sql
+OHM_SKIP_LOAD=1 npm run import:ohm    # NOTE: replaces the OHM rows with test data
 cd apps/web && npx playwright test
-npm run import                         # then restore the real data
+npm run import && npm run import:ohm   # then restore the real data
 ```
 
 ## Data
 
-Borders come from [Historical Basemaps](https://github.com/aourednik/historical-basemaps)
-(GPL-3.0) by Andrew Ourednik. The data is not part of this repository; `scripts/fetch-data.sh`
-downloads it. The author notes it is approximate and a work in progress.
+Borders come from two sources. [OpenHistoricalMap](https://www.openhistoricalmap.org/) (preferred;
+day-precise dates; data dedicated to the public domain under CC0; features tagged with a share-alike
+licence are skipped by the importer). [Historical Basemaps](https://github.com/aourednik/historical-basemaps)
+(GPL-3.0) by Andrew Ourednik fills the gaps; it is approximate and marked as such. The data is not part of
+this repository; `scripts/fetch-data.sh` and `scripts/fetch-ohm.sh` download it.
 
 ## Legal pages
 
