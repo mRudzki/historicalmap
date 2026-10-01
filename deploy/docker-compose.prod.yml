@@ -1,0 +1,69 @@
+# Production stack (see deploy/deploy.sh). Only the web container publishes a port; the database,
+# Martin and the API live on the private compose network. Memory limits keep this stack from
+# starving the other apps on the shared 2 GB server.
+name: historicalmap
+
+services:
+  db:
+    image: ghcr.io/baosystems/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set it in .env on the server}
+      POSTGRES_DB: historicalmap
+    command:
+      - postgres
+      - -c
+      - shared_buffers=160MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=20
+      - -c
+      - max_wal_size=1GB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
+      - ./dump:/dump:ro
+    mem_limit: 700m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -h 127.0.0.1 -d historicalmap"]
+      interval: 5s
+      retries: 30
+
+  martin:
+    image: ghcr.io/maplibre/martin:1.16.1
+    restart: unless-stopped
+    # tiles are cached by nginx (cleared on every deploy); Martin's own cache would outlive a data load
+    command: ["--cache-size", "0"]
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/historicalmap
+    depends_on:
+      db: { condition: service_healthy }
+    mem_limit: 80m
+
+  api:
+    image: historicalmap-api:${IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/historicalmap
+      NODE_OPTIONS: --max-old-space-size=96
+    depends_on:
+      db: { condition: service_healthy }
+    mem_limit: 192m
+
+  web:
+    image: historicalmap-web:${IMAGE_TAG:?set by deploy.sh}
+    restart: unless-stopped
+    ports:
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8082}:80"
+    depends_on:
+      - api
+      - martin
+    mem_limit: 64m
+
+volumes:
+  pgdata:

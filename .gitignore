@@ -5,3 +5,7 @@ dist/
 .superpowers/
 playwright-report/
 test-results/
+
+# server access (see deploy/deploy.env.example)
+deploy/deploy.env
+deploy/*.dump

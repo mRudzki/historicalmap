@@ -37,3 +37,8 @@ export function parseCoordinates(text: string): { lat: number; lng: number } | n
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
 }
+
+// In production the app is served from one origin (/api, /tiles); MapLibre needs absolute tile URLs.
+export function absoluteUrl(url: string, origin: string): string {
+  return url.startsWith('/') ? origin + url : url;
+}

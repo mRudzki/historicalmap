@@ -1,5 +1,10 @@
+import { absoluteUrl } from './format';
+
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
-export const TILES_URL: string = import.meta.env.VITE_TILES_URL ?? 'http://localhost:3100';
+export const TILES_URL: string = absoluteUrl(
+  import.meta.env.VITE_TILES_URL ?? 'http://localhost:3100',
+  location.origin,
+);
 
 export interface PolityAt {
   id: number; name: string; adminLevel: number; source: 'ohm' | 'hb';

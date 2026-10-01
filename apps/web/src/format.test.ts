@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clampYear, formatYear, parseCoordinates, polityLabel, tileUrl } from './format';
+import { absoluteUrl, clampYear, formatYear, parseCoordinates, polityLabel, tileUrl } from './format';
 
 describe('formatYear', () => {
   it('formats AD and BC years', () => {
@@ -71,5 +71,14 @@ describe('parseCoordinates', () => {
     ['three numbers', '1, 2, 3'],
   ])('rejects %s', (_label, text) => {
     expect(parseCoordinates(text)).toBeNull();
+  });
+});
+
+describe('absoluteUrl', () => {
+  it('prefixes a path with the page origin (MapLibre needs absolute tile URLs)', () => {
+    expect(absoluteUrl('/tiles', 'https://example.org')).toBe('https://example.org/tiles');
+  });
+  it('leaves full URLs alone', () => {
+    expect(absoluteUrl('http://localhost:3100', 'https://example.org')).toBe('http://localhost:3100');
   });
 });
