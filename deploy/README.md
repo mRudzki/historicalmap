@@ -76,6 +76,10 @@ On this server the proxy is the `edge-proxy` container (nginx, host network, con
    docker exec edge-proxy nginx -t && docker exec edge-proxy nginx -s reload
    ```
 
+**Shortcut:** `deploy/add-domain.sh historymaps.world` does steps 3-4 (and then closes the public app port
+by setting `WEB_BIND=127.0.0.1`). It first checks that the DNS records point at the server, backs the proxy
+config up, validates with `nginx -t` and rolls back if nginx rejects the result. `--print` only prints the blocks.
+
 Renewals are automatic (`certbot.timer`); the proxy only needs a reload to pick up a renewed certificate
 (`certbot renew --deploy-hook "docker exec edge-proxy nginx -s reload"`).
 
