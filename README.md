@@ -72,6 +72,10 @@ licence are skipped by the importer). [Historical Basemaps](https://github.com/a
 (GPL-3.0) by Andrew Ourednik fills the gaps; it is approximate and marked as such. The data is not part of
 this repository; `scripts/fetch-data.sh` and `scripts/fetch-ohm.sh` download it.
 
+## Deployment
+
+See [`deploy/README.md`](deploy/README.md): a small compose stack shipped over SSH (no registry, no secrets in the repo), plus a guide to running several apps with different domain names behind one reverse proxy on a single IP.
+
 ## Legal pages
 
 The site ships a Privacy Policy (`apps/web/privacy.html`) and a Legal Notice (`apps/web/legal.html`), linked from the map footer together with the GitHub repository. If you deploy your own instance, replace the operator details in both pages with your own.
