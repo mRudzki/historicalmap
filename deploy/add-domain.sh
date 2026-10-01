@@ -62,26 +62,48 @@ if [ "$MODE" = "--print" ]; then
   exit 0
 fi
 
-source "$(dirname "$0")/lib.sh"
+if [ "${ADD_DOMAIN_LOCAL:-0}" = "1" ]; then
+  # test mode (deploy/test-add-domain.sh): run the "remote" script locally
+  remote() { "$@"; }
+  : "${DEPLOY_HOST:?}" "${DEPLOY_DIR:?}"
+else
+  source "$(dirname "$0")/lib.sh"
+fi
 PORT="${WEB_PORT:-$PORT_DEFAULT}"
-CONF=/root/edge-proxy/default.conf
 
 echo "==> checking DNS"
-resolves_to_server() { [ "$(dig +short A "$1" @1.1.1.1 | tail -1)" = "$DEPLOY_HOST" ]; }
+# right after a change the public resolvers disagree for a while: ask two of them, a few times
+resolves_to_server() {
+  local try resolver
+  for try in 1 2 3; do
+    for resolver in 1.1.1.1 8.8.8.8; do
+      [ "$(dig +short A "$1" "@$resolver" | tail -1)" = "$DEPLOY_HOST" ] && return 0
+    done
+    sleep 2
+  done
+  return 1
+}
 NAMES="$DOMAIN"; CERT_ARGS=(-d "$DOMAIN")
 resolves_to_server "$DOMAIN" || { echo "$DOMAIN does not resolve to $DEPLOY_HOST yet (create its A record and wait for DNS)." >&2; exit 1; }
 if resolves_to_server "www.$DOMAIN"; then NAMES="$DOMAIN www.$DOMAIN"; CERT_ARGS+=(-d "www.$DOMAIN"); else echo "(no A record for www.$DOMAIN: it will not be included)"; fi
 
-HTTP_BLOCK="$(render_http "$NAMES")"
-HTTPS_BLOCK="$(render_https "$NAMES" "$PORT")"
+b64() { printf '%s' "$1" | base64 | tr -d '\n'; }
+HTTP_B64="$(b64 "$(render_http "$NAMES")")"
+HTTPS_B64="$(b64 "$(render_https "$NAMES" "$PORT")")"
 
 echo "==> configuring the edge proxy on $DEPLOY_HOST"
+# The blocks travel base64-encoded on stdin together with the script: ssh joins its arguments into one command
+# line, so multi-line arguments would be split and parsed by the remote shell.
 # The config file is bind-mounted into the container: it must be edited in place (>> / cat >), never
 # replaced (mv, sed -i), or the container keeps seeing the old inode.
-remote bash -s -- "$DOMAIN" "$HTTP_BLOCK" "$HTTPS_BLOCK" "${CERT_ARGS[*]}" <<'REMOTE'
+{
+  printf 'domain=%q; http_b64=%q; https_b64=%q; cert_args=%q; deploy_dir=%q\n' \
+    "$DOMAIN" "$HTTP_B64" "$HTTPS_B64" "${CERT_ARGS[*]}" "$DEPLOY_DIR"
+  cat <<'REMOTE'
 set -euo pipefail
-domain="$1"; http_block="$2"; https_block="$3"; cert_args="$4"
-conf=/root/edge-proxy/default.conf
+http_block="$(printf %s "$http_b64" | base64 --decode)"
+https_block="$(printf %s "$https_b64" | base64 --decode)"
+conf="${EDGE_CONF:-/root/edge-proxy/default.conf}"
 backup="$conf.bak-$(date +%Y%m%d-%H%M%S)"
 cp -p "$conf" "$backup"
 echo "backup: $backup"
@@ -89,34 +111,34 @@ echo "backup: $backup"
 rollback() { echo "nginx rejected the config: restoring $backup" >&2; cat "$backup" > "$conf"; docker exec edge-proxy nginx -s reload </dev/null || true; exit 1; }
 reload() { docker exec edge-proxy nginx -t </dev/null || rollback; docker exec edge-proxy nginx -s reload </dev/null; }
 
-if grep -q "listen 443 ssl;" "$conf" && grep -q "live/$domain/" "$conf"; then
-  echo "$domain is already configured: nothing to do"; exit 0
-fi
-
-if ! grep -q "server_name $domain" "$conf"; then
-  printf '%s\n' "$http_block" >> "$conf"
+if grep -q "live/$domain/" "$conf"; then
+  echo "$domain is already configured: nothing to do"
+else
+  if ! grep -q "server_name $domain" "$conf"; then
+    printf '%s\n' "$http_block" >> "$conf"
+    reload
+  fi
+  # shellcheck disable=SC2086
+  certbot certonly --webroot -w /root/edge-proxy/webroot $cert_args --non-interactive --agree-tos \
+    </dev/null || { echo "certbot failed: the HTTP block stays, the HTTPS block was not added" >&2; exit 1; }
+  printf '%s\n' "$https_block" >> "$conf"
   reload
+  echo "edge proxy updated"
 fi
 
-certbot certonly --webroot -w /root/edge-proxy/webroot $cert_args --non-interactive --agree-tos \
-  </dev/null || { echo "certbot failed: the HTTP block stays, the HTTPS block was not added" >&2; exit 1; }
-
-printf '%s\n' "$https_block" >> "$conf"
-reload
-echo "edge proxy updated"
+# the proxy reaches the app on 127.0.0.1, so the app port no longer needs to be public
+mkdir -p "$deploy_dir"; touch "$deploy_dir/.env"
+grep -v '^WEB_BIND=' "$deploy_dir/.env" > "$deploy_dir/.env.new" || true
+echo 'WEB_BIND=127.0.0.1' >> "$deploy_dir/.env.new"
+cat "$deploy_dir/.env.new" > "$deploy_dir/.env"; rm -f "$deploy_dir/.env.new"
 REMOTE
+} | remote bash -s
 
 echo "==> verifying https://$DOMAIN"
 code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 --resolve "$DOMAIN:443:$DEPLOY_HOST" "https://$DOMAIN/")"
 echo "https://$DOMAIN/ -> $code"
 [ "$code" = "200" ] || { echo "unexpected status; the backup of the proxy config is on the server (default.conf.bak-*)" >&2; exit 1; }
 
-echo "==> closing the public port $PORT (the proxy reaches the app on 127.0.0.1)"
-remote bash -s <<REMOTE
-set -euo pipefail
-cd '$DEPLOY_DIR'
-sed -i '/^WEB_BIND=/d' .env
-echo 'WEB_BIND=127.0.0.1' >> .env
-docker compose up -d web </dev/null
-REMOTE
+echo "==> closing the public port $PORT"
+{ printf 'deploy_dir=%q\n' "$DEPLOY_DIR"; echo 'cd "$deploy_dir" && docker compose up -d web </dev/null'; } | remote bash -s
 echo "==> done: https://$DOMAIN/"
