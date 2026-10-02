@@ -32,7 +32,9 @@ export interface HistoryProperties {
   source: 'ohm' | 'hb';
   from: number;
   to: number | null;
-  periods: { from: number; to: number | null }[];
+  periods?: { from: number; to: number | null }[]; // unpaged /history: all periods of the polity
+  index?: number; // paged /history: rank of this period, newest = 0
+  mapYear?: number; // paged /history: a year whose map shows this period
 }
 export interface HistoryFeature {
   type: 'Feature';
@@ -43,3 +45,15 @@ export interface HistoryCollection { type: 'FeatureCollection'; features: Histor
 
 export const fetchHistory = (lat: number, lon: number, withRegions: boolean) =>
   getJson<HistoryCollection>(`/history?lat=${lat}&lon=${lon}${withRegions ? '&levels=2,3,4' : ''}`);
+
+export interface HistoryPage extends HistoryCollection {
+  total: number;
+  offset: number;
+  nextOffset: number | null;
+}
+
+// One page of periods, newest first (the rewind view): the server only computes the geometry of this page.
+export const fetchHistoryPage = (lat: number, lon: number, withRegions: boolean, offset: number, limit: number) =>
+  getJson<HistoryPage>(
+    `/history?lat=${lat}&lon=${lon}&limit=${limit}&offset=${offset}${withRegions ? '&levels=2,3,4' : ''}`,
+  );

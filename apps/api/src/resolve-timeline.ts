@@ -64,3 +64,10 @@ export function displayPeriod(p: Period) {
   const to = p.to === null ? null : p.source === 'ohm' ? Math.floor(p.to - 1e-6) : Math.floor(p.to);
   return { name: p.name, color: p.color, from: Math.floor(p.from), to, source: p.source };
 }
+
+// A year whose middle (year + 0.5, the moment maps are looked up at) lies inside [from, to): the earliest such
+// year, or the start year for a period too short to contain a middle. Used to show "the map of that period".
+export function mapYearFor(from: number, to: number | null): number {
+  const year = Math.ceil(from - 0.5);
+  return to === null || year + 0.5 < to ? year : Math.floor(from);
+}

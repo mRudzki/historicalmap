@@ -32,3 +32,19 @@ html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
   box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 #coords input { flex: 1; min-width: 0; }
 #coords-error { flex-basis: 100%; color: #b00020; font-size: .8rem; }
+#panel .view-toggle { display: flex; margin: 4px 0 8px; }
+#panel .view-toggle button { flex: 1; padding: 4px 8px; border: 1px solid #2b6cb0; background: #fff; color: #2b6cb0; cursor: pointer; font: inherit; }
+#panel .view-toggle button:first-child { border-radius: 6px 0 0 6px; }
+#panel .view-toggle button:last-child { border-radius: 0 6px 6px 0; border-left: 0; }
+#panel .view-toggle button[aria-pressed="true"] { background: #2b6cb0; color: #fff; }
+.rewind-controls { display: flex; align-items: center; gap: 6px; margin: 4px 0 8px; }
+.rewind-controls button { padding: 4px 10px; font: inherit; cursor: pointer; }
+.rewind-controls button:disabled { cursor: default; opacity: .4; }
+#rewind-position { margin-left: auto; font-variant-numeric: tabular-nums; }
+#rewind-current { margin: 4px 0 6px; padding: 8px; background: #f2f6fb; border-radius: 6px; }
+#rewind-current .rewind-name { font-weight: 600; }
+.rewind-sync { display: block; font-size: .85rem; margin: 6px 0; }
+#rewind-list { margin-top: 6px; }
+#rewind-list li { cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+#rewind-list li.current { background: #dbe8f7; font-weight: 600; }
+.rewind-error { color: #b00020; font-size: .85rem; }

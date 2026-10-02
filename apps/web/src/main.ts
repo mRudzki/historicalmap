@@ -2,10 +2,11 @@ import * as maplibregl from 'maplibre-gl';
 import type { LayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './style.css';
-import { TILES_URL, fetchAt, fetchHistory, fetchRange, fetchTimeline } from './api';
+import { TILES_URL, fetchAt, fetchHistory, fetchHistoryPage, fetchRange, fetchTimeline } from './api';
 import { clampYear, formatYear, parseCoordinates, tileUrl } from './format';
 import { PinLayer, HISTORY_SOURCE, emptyHistory, historyLayers } from './pin-mode';
-import { renderHistoryPanel, renderPanel } from './panel';
+import { renderHistoryPanel, renderPanel, renderRewindPanel, type PinView } from './panel';
+import { Rewind } from './rewind';
 import { t } from './strings';
 
 // Production: the worker is emitted by the maplibreWorker plugin in vite.config.ts (dev needs nothing).
@@ -126,6 +127,32 @@ type Mode = 'year' | 'pin';
 let mode: Mode = 'year';
 let latestClick = 0; // ignore responses of clicks that were superseded
 
+// Pin mode has two views: "rewind" (default: step back through the periods, loaded page by page) and "all".
+let pinView: PinView = 'rewind';
+let syncMap = true; // show the map of the period's year in the background
+let rewind: Rewind | null = null;
+let playTimer: ReturnType<typeof setInterval> | undefined;
+let backgroundYear: number | null = null;
+const PLAY_MS = 1500;
+
+const playing = () => playTimer !== undefined;
+function stopPlay(): void {
+  clearInterval(playTimer);
+  playTimer = undefined;
+}
+
+// Pin mode background: the map of the current period's year (rewind + sync), else neutral modern land.
+function applyPinBackground(): void {
+  if (mode !== 'pin') return;
+  const period = pinView === 'rewind' && syncMap ? rewind?.current : undefined;
+  const wanted = period ? clampYear(String(period.properties.mapYear ?? period.properties.from), min, max, max) : max;
+  for (const l of FILL_LAYERS) map.setPaintProperty(l.id, 'fill-color', period ? ['get', 'color'] : '#e2e2e2');
+  if (wanted !== backgroundYear) {
+    backgroundYear = wanted;
+    setTilesSoon(wanted);
+  }
+}
+
 const setRegionsLayer = () =>
   map.setLayoutProperty('regions-line', 'visibility', regionsBox.checked && mode === 'year' ? 'visible' : 'none');
 
@@ -139,10 +166,12 @@ function setMode(next: Mode): void {
   coordsForm.hidden = next !== 'pin';
   coordsError.hidden = true;
   pin.setVisible(next === 'pin');
+  stopPlay();
+  rewind = null;
+  backgroundYear = null;
   if (next === 'pin') {
-    // Neutral, modern-day land as context so the coloured contours stay readable.
-    setTiles(max);
-    for (const l of FILL_LAYERS) map.setPaintProperty(l.id, 'fill-color', '#e2e2e2');
+    applyPinBackground(); // neutral modern land until a place is pinned, so the contours stay readable
+    if (backgroundYear !== null) setTiles(backgroundYear);
   } else {
     pin.clear();
     setTiles(year);
@@ -162,14 +191,76 @@ slider.addEventListener('input', () => setYear(Number(slider.value)));
 yearInput.addEventListener('change', () => setYear(clampYear(yearInput.value, min, max, year)));
 let lastClick: { lat: number; lng: number } | null = null;
 
+function setPinView(view: PinView): void {
+  pinView = view;
+  stopPlay();
+  if (lastClick) void lookup(lastClick.lat, lastClick.lng);
+}
+
+const rewindHandlers = {
+  older: () => { stopPlay(); void rewind?.older(); },
+  newer: () => { stopPlay(); rewind?.newer(); },
+  goTo: (index: number) => { stopPlay(); rewind?.goTo(index); },
+  togglePlay: () => {
+    if (playing()) {
+      stopPlay();
+    } else {
+      playTimer = setInterval(() => {
+        if (!rewind) return stopPlay();
+        if (!rewind.canOlder) { stopPlay(); renderRewind(); return; }
+        if (!rewind.loading) void rewind.older(); // while a page loads, wait for the next tick
+      }, PLAY_MS);
+    }
+    renderRewind();
+  },
+  setSync: (sync: boolean) => { syncMap = sync; renderRewind(); },
+  setView: setPinView,
+  retry: () => void rewind?.retry(),
+};
+
+// Shows the current period: its contour on the map and the panel with the steppers and the loaded periods.
+function renderRewind(): void {
+  if (!rewind || mode !== 'pin' || pinView !== 'rewind') return;
+  const current = rewind.current;
+  pin.setData({ type: 'FeatureCollection', features: current ? [current] : [] });
+  pin.emphasize(true);
+  renderRewindPanel(
+    panel,
+    {
+      items: rewind.items, index: rewind.index, total: rewind.total, loading: rewind.loading, error: rewind.error,
+      canOlder: rewind.canOlder, canNewer: rewind.canNewer, playing: playing(), sync: syncMap,
+    },
+    rewindHandlers,
+  );
+  applyPinBackground();
+}
+
 async function lookup(lat: number, lng: number): Promise<void> {
   const id = ++latestClick;
   try {
     if (mode === 'pin') {
-      const history = await fetchHistory(lat, lng, regionsBox.checked);
-      if (id !== latestClick) return;
-      pin.show([lng, lat], history);
-      renderHistoryPanel(panel, history.features, (name) => pin.highlight(name));
+      stopPlay();
+      pin.place([lng, lat]);
+      if (pinView === 'all') {
+        rewind = null;
+        pin.emphasize(false);
+        const history = await fetchHistory(lat, lng, regionsBox.checked);
+        if (id !== latestClick) return;
+        pin.show([lng, lat], history);
+        renderHistoryPanel(panel, history.features, (name) => pin.highlight(name), setPinView);
+        applyPinBackground();
+      } else {
+        const instance: Rewind = new Rewind({
+          fetchPage: (offset, limit) => fetchHistoryPage(lat, lng, regionsBox.checked, offset, limit),
+          onChange: () => rewind === instance && renderRewind(),
+          firstPage: 3, // small, so the newest period shows up quickly; the rest loads in the background
+          pageSize: 6,
+          prefetchAhead: 2,
+        });
+        rewind = instance;
+        renderRewind();
+        await instance.start();
+      }
     } else {
       const [at, periods] = await Promise.all([fetchAt(lat, lng, year), fetchTimeline(lat, lng)]);
       if (id !== latestClick) return;

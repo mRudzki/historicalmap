@@ -19,6 +19,11 @@ export const historyLayers: LayerSpecification[] = [
     paint: { 'line-color': ['get', 'color'], 'line-width': ['case', ['==', ['get', 'level'], 2], 1.5, 0.8] },
   },
   {
+    // rewind view only: the current period stands out even when the synced background has its colour
+    id: 'history-current', type: 'line', source: HISTORY_SOURCE, layout: hidden,
+    paint: { 'line-color': '#1a1a1a', 'line-width': 2.5, 'line-dasharray': [3, 2] },
+  },
+  {
     id: 'history-highlight', type: 'line', source: HISTORY_SOURCE, layout: hidden,
     filter: ['==', ['get', 'name'], ''],
     paint: { 'line-color': ['get', 'color'], 'line-width': 4 },
@@ -36,14 +41,28 @@ export class PinLayer {
 
   setVisible(visible: boolean): void {
     for (const l of historyLayers) {
+      if (l.id === 'history-current') continue; // controlled by emphasize()
       this.map.setLayoutProperty(l.id, 'visibility', visible ? 'visible' : 'none');
     }
+    if (!visible) this.emphasize(false);
+  }
+
+  emphasize(on: boolean): void {
+    this.map.setLayoutProperty('history-current', 'visibility', on ? 'visible' : 'none');
+  }
+
+  place(lngLat: maplibregl.LngLatLike): void {
+    this.marker.setLngLat(lngLat).addTo(this.map);
+  }
+
+  setData(data: HistoryCollection): void {
+    this.source().setData(data as never);
+    this.highlight(null);
   }
 
   show(lngLat: maplibregl.LngLatLike, data: HistoryCollection): void {
-    this.marker.setLngLat(lngLat).addTo(this.map);
-    this.source().setData(data as never);
-    this.highlight(null);
+    this.place(lngLat);
+    this.setData(data);
   }
 
   highlight(name: string | null): void {

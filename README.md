@@ -5,7 +5,7 @@ belonged to. A year slider colours every polity's borders differently, and click
 history of that place over time.
 
 Two modes: **Year** (slider; a click shows the polity in that year plus the place's history) and
-**Pin** (a click drops a pin and outlines every polity that ever held the place, with a faint fill). In Pin mode you can also type coordinates (`54.35, 18.65`, `54.35N 18.65E`) instead of clicking.
+**Pin** (a click drops a pin; the default **Rewind** view steps back through the periods the place belonged to, newest first, with the contour of each period and, optionally, the map of that year; **All** outlines every polity that ever held the place at once). Rewind loads the periods page by page (`/history?limit=&offset=`): a small first page for a fast start, the next pages in the background ahead of the user. In Pin mode you can also type coordinates (`54.35, 18.65`, `54.35N 18.65E`) instead of clicking.
 
 An educational project: borders are approximate.
 
@@ -45,7 +45,7 @@ Historical Basemaps fills the gaps: on the map the HB layer (`fallback`) is draw
 (`polities`), and the API resolves the same precedence per place and date. Martin streams vector tiles (MVT)
 from the SQL function `polities_tile(z, x, y, query_params)` (the year is passed as `?year=`; layers
 `fallback`, `polities`, `regions`). A thin Fastify API answers `/range`, `/at?lat=&lon=&year=`,
-`/timeline?lat=&lon=` and `/history?lat=&lon=&levels=` (GeoJSON contours). The frontend (Vite +
+`/timeline?lat=&lon=` and `/history?lat=&lon=&levels=[&limit=&offset=]` (GeoJSON contours; paged = one feature per period, newest first). The frontend (Vite +
 MapLibre GL, globe projection) renders the tiles and the panel. UI text lives in `apps/web/src/strings.ts`.
 Martin runs with its in-memory tile cache disabled (`--cache-size 0`) in `docker-compose.yml`: with the cache on it keeps serving the old tiles after an import until it is restarted. In production put an HTTP cache/CDN in front and purge it after an import.
 Every geometry is stored three times: full (tiles from z8), `geom_lookup` (~200 m tolerance: point lookups and z6-z7 tiles, so the

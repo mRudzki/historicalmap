@@ -1,7 +1,7 @@
 import cors from '@fastify/cors';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type pg from 'pg';
-import { displayPeriod, resolveTimeline, type Interval } from './resolve-timeline';
+import { displayPeriod, mapYearFor, resolveTimeline, type Interval } from './resolve-timeline';
 
 const pointSchema = {
   lat: { type: 'number', minimum: -90, maximum: 90 },
@@ -24,7 +24,12 @@ const historySchema = {
   querystring: {
     type: 'object',
     required: ['lat', 'lon'],
-    properties: { ...pointSchema, levels: { type: 'string', pattern: '^[2-4](,[2-4])*$' } },
+    properties: {
+      ...pointSchema,
+      levels: { type: 'string', pattern: '^[2-4](,[2-4])*$' },
+      limit: { type: 'integer', minimum: 1, maximum: 50 },
+      offset: { type: 'integer', minimum: 0 },
+    },
   },
 } as const;
 
@@ -85,11 +90,62 @@ export function createApp(pool: pg.Pool): FastifyInstance {
     return { periods: resolveTimeline(intervals(rows, 'ohm'), intervals(rows, 'hb')).map(displayPeriod) };
   });
 
+  type HistoryRow = IntervalRow & { id: number; level: number };
+  type HistoryEntry = { id: number; level: number; periods: ReturnType<typeof resolveTimeline> };
+
+  async function historyPage(
+    lat: number, lon: number, all: HistoryRow[], entries: HistoryEntry[], limit: number, offset: number,
+  ) {
+    const items = entries.flatMap((e) =>
+      e.periods.map((period) => ({ id: e.id, level: e.level, period, color: all.find((r) => r.id === e.id)!.color })),
+    );
+    items.sort((a, b) => b.period.from - a.period.from || a.period.name.localeCompare(b.period.name));
+    const slice = items.slice(offset, offset + limit);
+    const nextOffset = offset + slice.length < items.length ? offset + slice.length : null;
+    if (slice.length === 0) {
+      return { type: 'FeatureCollection' as const, features: [], total: items.length, offset, nextOffset };
+    }
+
+    // geometry of each period: the polity's geometries of that source that overlap the period and contain the point
+    const geo = await pool.query(
+      `SELECT i.idx::int AS idx,
+              ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_CollectionExtract(
+                ST_MakeValid(ST_Union(COALESCE(g.geom_simple, g.geom))), 3), 0.02), 4)::json AS geometry
+       FROM unnest($3::int[], $4::float8[], $5::float8[], $6::text[]) WITH ORDINALITY AS i(id, f, t, src, idx)
+       JOIN polity_geometries g ON g.polity_id = i.id AND g.source = i.src
+        AND g.valid_from < i.t AND COALESCE(g.valid_to, 1e9) > i.f
+       WHERE ${HIT}
+       GROUP BY i.idx`,
+      [lon, lat, slice.map((i) => i.id), slice.map((i) => i.period.from), slice.map((i) => i.period.to ?? 1e9),
+       slice.map((i) => i.period.source)],
+    );
+    const geometry = new Map(geo.rows.map((r) => [r.idx as number, r.geometry]));
+
+    const features = slice.map((item, i) => {
+      const shown = displayPeriod(item.period);
+      return {
+        type: 'Feature' as const,
+        properties: {
+          name: shown.name, color: item.color, level: item.level, source: shown.source,
+          from: shown.from, to: shown.to, index: offset + i, mapYear: mapYearFor(item.period.from, item.period.to),
+        },
+        geometry: geometry.get(i + 1) ?? null,
+      };
+    });
+    return { type: 'FeatureCollection' as const, features, total: items.length, offset, nextOffset };
+  }
+
   // One contour per polity that ever held the point: the union of its geometries containing the
   // point. Unions the precomputed simplified copies: unioning the raw geometries of a state
   // (some are huge) took ~40 s. HB polities count only if some interval survives OHM precedence.
+  //
+  // Paged mode (`limit` and/or `offset`; used by the rewind view): one feature per PERIOD, newest first, with
+  // the geometry of that period only, computed for the requested page only, so the first page is fast.
   app.get('/history', { schema: historySchema }, async (req) => {
-    const { lat, lon, levels } = req.query as { lat: number; lon: number; levels?: string };
+    const { lat, lon, levels, limit, offset } = req.query as {
+      lat: number; lon: number; levels?: string; limit?: number; offset?: number;
+    };
+    const paged = limit !== undefined || offset !== undefined;
     const wanted = (levels ?? '2').split(',').map(Number);
     const { rows } = await pool.query(
       `SELECT p.id, p.name, p.admin_level AS level, polity_color(p.name) AS color,
@@ -115,6 +171,7 @@ export function createApp(pool: pg.Pool): FastifyInstance {
       const own = all.filter((r) => r.id === id);
       entries.push({ id, level: own[0].level, periods: resolveTimeline(intervals(own, 'ohm'), []) });
     }
+    if (paged) return historyPage(lat, lon, all, entries, limit ?? 6, offset ?? 0);
     if (entries.length === 0) return { type: 'FeatureCollection' as const, features: [] };
 
     const geo = await pool.query(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayPeriod, resolveTimeline, type Interval } from '../src/resolve-timeline';
+import { displayPeriod, mapYearFor, resolveTimeline, type Interval } from '../src/resolve-timeline';
 
 const iv = (name: string, from: number, to: number | null): Interval => ({ name, color: `c-${name}`, from, to });
 const simple = (ps: ReturnType<typeof resolveTimeline>) => ps.map((p) => [p.name, p.from, p.to, p.source]);
@@ -65,5 +65,22 @@ describe('displayPeriod', () => {
     expect(displayPeriod({ name: 'X', color: 'c', from: 1000, to: 1872, source: 'ohm' })).toMatchObject({ from: 1000, to: 1871 });
     expect(displayPeriod({ name: 'A', color: 'c', from: 1715, to: 1783, source: 'hb' })).toMatchObject({ from: 1715, to: 1783 });
     expect(displayPeriod({ name: 'A', color: 'c', from: 1783, to: null, source: 'hb' })).toMatchObject({ to: null });
+  });
+});
+
+describe('mapYearFor', () => {
+  // the map shows the state of a year at year + 0.5, so the year must put that moment inside the period
+  it.each([
+    ['starts mid-year: the first year whose middle is inside', 1918.89, 1940.48, 1919],
+    ['starts early in the year', 1871.34, 1878.53, 1871],
+    ['starts exactly on a year boundary', 1000, 1050, 1000],
+    ['open-ended', 1945.3, null, 1945],
+    ['BC years', -27.2, -18, -27],
+  ])('%s', (_label, from, to, expected) => {
+    expect(mapYearFor(from, to)).toBe(expected);
+  });
+
+  it('falls back to the start year for a period shorter than that', () => {
+    expect(mapYearFor(1000.6, 1000.9)).toBe(1000);
   });
 });

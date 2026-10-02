@@ -103,6 +103,91 @@ test('pin mode: coordinates can be typed, and clicking the map fills them in', a
   await expect(page.locator('#coords-error')).toBeHidden();
 });
 
+test('pin mode: rewind steps back through what a place belonged to, loading it page by page', async ({ page }) => {
+  const historyCalls: string[] = [];
+  page.on('request', (r) => {
+    if (new URL(r.url()).pathname.endsWith('/history')) historyCalls.push(new URL(r.url()).search);
+  });
+
+  await page.goto('/?lat=44&lng=2&zoom=5');
+  await page.getByRole('button', { name: 'Pin' }).click();
+  await page.locator('#coords-input').fill('44, 2');
+  await page.locator('#coords-input').press('Enter');
+
+  const current = page.locator('#rewind-current');
+  const position = page.locator('#rewind-position');
+  // newest period first
+  await expect(current).toContainText('Kingdom B');
+  await expect(position).toHaveText('1 / 4');
+
+  // paging: a small first page, the rest is fetched in the background
+  await expect.poll(() => historyCalls.length).toBeGreaterThanOrEqual(2);
+  expect(historyCalls[0]).toMatch(/limit=3/);
+  expect(historyCalls[0]).toMatch(/offset=0/);
+  expect(historyCalls[1]).toMatch(/offset=3/);
+
+  const older = page.getByRole('button', { name: 'Older period' });
+  const newer = page.getByRole('button', { name: 'Newer period' });
+  await expect(newer).toBeDisabled();
+
+  await older.click();
+  await expect(current).toContainText('Kingdom A');
+  await expect(current).toContainText('1081');
+  await expect(position).toHaveText('2 / 4');
+  // the map follows: tiles are requested for a year inside that period
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__map.getSource('polities').tiles[0]))
+    .toMatch(/year=1081/);
+  // the current period gets a high-contrast outline (the synced background has the same colour) in the rewind view only
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__map.getLayoutProperty('history-current', 'visibility')))
+    .toBe('visible');
+  // the contour of the current period is drawn
+  await page.waitForFunction(
+    () => (window as any).__map.queryRenderedFeatures({ layers: ['history-line'] }).length > 0,
+  );
+
+  await older.click();
+  await expect(current).toContainText('Realm X');
+  await older.click();
+  await expect(current).toContainText('Kingdom A');
+  await expect(current).toContainText('1000');
+  await expect(position).toHaveText('4 / 4');
+  await expect(older).toBeDisabled();
+
+  await newer.click();
+  await expect(current).toContainText('Realm X');
+
+  // clicking an entry of the list jumps to it
+  await page.locator('#rewind-list li', { hasText: 'Kingdom B' }).click();
+  await expect(position).toHaveText('1 / 4');
+
+  // "All" shows every polity at once, the old way; back to rewind afterwards
+  await page.getByRole('button', { name: 'All' }).click();
+  await expect(page.locator('#panel')).toContainText('Kingdom A');
+  await expect(page.locator('#rewind-current')).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => (window as any).__map.getLayoutProperty('history-current', 'visibility')))
+    .toBe('none');
+  await page.getByRole('button', { name: 'Rewind' }).click();
+  await expect(current).toContainText('Kingdom B');
+});
+
+test('pin mode: play steps back automatically and pause stops it', async ({ page }) => {
+  await page.goto('/?lat=44&lng=2&zoom=5');
+  await page.getByRole('button', { name: 'Pin' }).click();
+  await page.locator('#coords-input').fill('44, 2');
+  await page.locator('#coords-input').press('Enter');
+  await expect(page.locator('#rewind-current')).toContainText('Kingdom B');
+
+  await page.getByRole('button', { name: 'Play' }).click();
+  await expect(page.locator('#rewind-position')).not.toHaveText('1 / 4', { timeout: 8000 });
+  await page.getByRole('button', { name: 'Pause' }).click();
+  const frozen = await page.locator('#rewind-position').innerText();
+  await page.waitForTimeout(2500);
+  await expect(page.locator('#rewind-position')).toHaveText(frozen);
+});
+
 test('pin mode drops a pin and outlines every polity that ever held the place', async ({ page }) => {
   await page.goto('/?lat=45&lng=7&zoom=5');
   await page.waitForFunction(

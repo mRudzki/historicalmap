@@ -117,6 +117,21 @@ describe('HB data only', () => {
       expect(Math.max(...lons)).toBe(10);
     });
 
+    it.each([
+      ['limit 0', 'limit=0'],
+      ['limit above the maximum', 'limit=51'],
+      ['negative offset', 'offset=-1'],
+      ['non-numeric limit', 'limit=abc'],
+    ])('rejects paging with %s', async (_label, query) => {
+      expect((await get(`/history?lat=45&lon=7&${query}`)).statusCode).toBe(400);
+    });
+
+    it('an empty page for the sea has no total and no next page', async () => {
+      expect((await get('/history?lat=0&lon=-30&limit=3')).json()).toEqual({
+        type: 'FeatureCollection', features: [], total: 0, offset: 0, nextOffset: null,
+      });
+    });
+
     it('returns 200 with no features for the sea; rejects bad coordinates and bad levels', async () => {
       expect((await get('/history?lat=0&lon=-30')).json()).toEqual({ type: 'FeatureCollection', features: [] });
       expect((await get('/history?lat=45&lon=181')).statusCode).toBe(400);
@@ -232,6 +247,65 @@ describe('HB + OHM data', () => {
       expect((await get('/timeline?lat=42&lon=32')).json().periods).toEqual([
         { name: 'Licensed Land', color: expect.stringMatching(/^hsl/), from: 1000, to: null, source: 'ohm' },
       ]);
+    });
+  });
+
+  describe('GET /history paged (rewind): one feature per period, newest first, geometry only for the page', () => {
+    const summary = (res: { json: () => { features: { properties: Record<string, unknown> }[] } }) =>
+      res.json().features.map((f) => [f.properties.name, f.properties.from, f.properties.to, f.properties.source, f.properties.index]);
+
+    it('first page', async () => {
+      const res = await get('/history?lat=44&lon=2&limit=2');
+      expect(res.statusCode).toBe(200);
+      const body = res.json();
+      expect(summary(res)).toEqual([
+        ['Kingdom B', 1100, null, 'hb', 0],
+        ['Kingdom A', 1081, 1100, 'hb', 1],
+      ]);
+      expect([body.total, body.offset, body.nextOffset]).toEqual([4, 0, 2]);
+      expect(body.features.map((f: { properties: { mapYear: number } }) => f.properties.mapYear)).toEqual([1100, 1081]);
+      for (const f of body.features) {
+        expect(f.type).toBe('Feature');
+        expect(['Polygon', 'MultiPolygon']).toContain(f.geometry.type);
+        expect(f.properties).toMatchObject({ level: 2, color: expect.stringMatching(/^hsl/) });
+      }
+    });
+
+    it('second page continues without overlap and ends with nextOffset null', async () => {
+      const res = await get('/history?lat=44&lon=2&limit=2&offset=2');
+      expect(summary(res)).toEqual([
+        ['Realm X', 1050, 1080, 'ohm', 2],
+        ['Kingdom A', 1000, 1050, 'hb', 3],
+      ]);
+      expect([res.json().total, res.json().offset, res.json().nextOffset]).toEqual([4, 2, null]);
+    });
+
+    it('a page that is not full still reports the end', async () => {
+      const res = await get('/history?lat=44&lon=2&limit=3&offset=3');
+      expect(summary(res)).toEqual([['Kingdom A', 1000, 1050, 'hb', 3]]);
+      expect(res.json().nextOffset).toBeNull();
+    });
+
+    it('an offset beyond the end gives an empty page', async () => {
+      const res = await get('/history?lat=44&lon=2&limit=2&offset=10');
+      expect(res.json()).toMatchObject({ features: [], total: 4, offset: 10, nextOffset: null });
+    });
+
+    it('offset alone and limit alone both switch to paging (default limit 6 covers everything here)', async () => {
+      expect(summary(await get('/history?lat=44&lon=2&offset=0')).length).toBe(4);
+      expect(summary(await get('/history?lat=44&lon=2&limit=50')).length).toBe(4);
+    });
+
+    it('levels=2,3,4 puts the regions among the periods', async () => {
+      const res = await get('/history?lat=44&lon=2&levels=2,3,4&limit=10');
+      expect(summary(res).map((r) => r[0])).toEqual(['Kingdom B', 'Kingdom A', 'Region R', 'Realm X', 'Kingdom A']);
+      expect(res.json().total).toBe(5);
+      expect(res.json().features[2].properties).toMatchObject({ level: 4, from: 1060, to: 1070 });
+    });
+
+    it('the unpaged call keeps returning one contour per polity', async () => {
+      const features = (await get('/history?lat=44&lon=2')).json().features;
+      expect(features.map((f: { properties: { name: string } }) => f.properties.name)).toEqual(['Kingdom A', 'Realm X', 'Kingdom B']);
     });
   });
 
