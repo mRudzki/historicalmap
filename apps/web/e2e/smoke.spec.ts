@@ -257,6 +257,7 @@ test('legal pages are linked from the map and identify the operator', async ({ p
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Privacy Policy');
   const main = page.locator('main');
   await expect(main).toContainText('Michał Rudzki');
+  await expect(main).toContainText('ul. Henryka Sienkiewicza 49, 42-600 Tarnowskie Góry, Poland');
   await expect(main).toContainText('6452571170');
   await expect(main).toContainText('does not use cookies');
   await expect(main).toContainText('does not show advertising');
@@ -264,6 +265,7 @@ test('legal pages are linked from the map and identify the operator', async ({ p
 
   await page.getByRole('link', { name: 'Legal notice' }).click();
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Legal Notice');
+  await expect(main).toContainText('ul. Henryka Sienkiewicza 49, 42-600 Tarnowskie Góry, Poland');
   await expect(main).toContainText('GPL-3.0');
   await expect(main).toContainText('OpenHistoricalMap');
   await expect(main).toContainText('CC0');
