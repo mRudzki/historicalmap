@@ -3,7 +3,29 @@ import path from 'node:path';
 import type pg from 'pg';
 
 export const UNNAMED = 'Unnamed territory';
-export const EUROPE_BBOX = { west: -25, south: 34, east: 45, north: 72 } as const;
+
+export interface Bbox {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+export const WORLD_BBOX: Bbox = { west: -180, south: -85, east: 180, north: 85 };
+
+// "west,south,east,north" in decimal degrees, e.g. "-25,34,45,72" for Europe.
+// Latitude is limited to ±85 like the import clip (Web Mercator safety).
+export function parseBbox(text: string): Bbox {
+  const parts = text.split(',').map((p) => Number(p));
+  const [west, south, east, north] = parts;
+  if (
+    parts.length !== 4 || parts.some((n) => !Number.isFinite(n)) ||
+    west < -180 || east > 180 || west >= east ||
+    south < -85 || north > 85 || south >= north
+  ) {
+    throw new Error(`Invalid BBOX "${text}" (expected west,south,east,north, e.g. -25,34,45,72)`);
+  }
+  return { west, south, east, north };
+}
 
 export function parseSnapshotYear(filename: string): number | null {
   const m = /^world_(bc)?(\d+)\.geojson$/.exec(filename);
@@ -18,7 +40,7 @@ interface Feature {
 }
 
 // One statement per feature: build a valid, clipped MultiPolygon, keep it only if it
-// touches Europe, upsert the polity, insert the geometry. rowCount = 1 when kept.
+// touches the coverage bbox, upsert the polity, insert the geometry. rowCount = 1 when kept.
 const INSERT_FEATURE = `
 WITH g AS (
   SELECT ST_Multi(ST_CollectionExtract(
@@ -42,10 +64,11 @@ SELECT p.id, 'hb', $7::float8, $8::float8, keep.geom, simplify_polygons(keep.geo
 export async function importDirectory(
   pool: pg.Pool,
   dir: string,
-  opts: { minYear?: number } = {},
+  opts: { minYear?: number; bbox?: Bbox } = {},
 ): Promise<{ snapshots: number; features: number }> {
   const minYear = opts.minYear ?? 1;
   if (!Number.isFinite(minYear)) throw new Error(`Invalid minYear: ${opts.minYear}`);
+  const bbox = opts.bbox ?? WORLD_BBOX;
   const files = (await readdir(dir))
     .map((name) => ({ name, year: parseSnapshotYear(name) }))
     .filter((f): f is { name: string; year: number } => f.year !== null && f.year >= minYear)
@@ -72,7 +95,7 @@ export async function importDirectory(
         const p = feat.properties;
         const res = await client.query(INSERT_FEATURE, [
           JSON.stringify(feat.geometry),
-          EUROPE_BBOX.west, EUROPE_BBOX.south, EUROPE_BBOX.east, EUROPE_BBOX.north,
+          bbox.west, bbox.south, bbox.east, bbox.north,
           p.NAME ?? UNNAMED, snap.year, validTo, p.BORDERPRECISION ?? null,
         ]);
         features += res.rowCount ?? 0;

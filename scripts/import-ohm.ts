@@ -4,9 +4,11 @@ import pg from 'pg';
 import { applySchema } from '../db/apply-schema';
 import { ensureLand } from './land-cli';
 import { importOhmStaging } from './import-ohm-lib';
+import { parseBbox } from './import-lib';
 
 const url = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5433/historicalmap';
 const minYear = process.env.MIN_YEAR ? Number(process.env.MIN_YEAR) : undefined;
+const bbox = process.env.BBOX ? parseBbox(process.env.BBOX) : undefined;
 const skipLoad = process.env.OHM_SKIP_LOAD === '1'; // use an existing ohm_stage schema (tests/e2e)
 
 const pool = new pg.Pool({ connectionString: url });
@@ -27,7 +29,7 @@ try {
       { stdio: 'inherit' },
     );
   }
-  const r = await importOhmStaging(pool, { minYear });
+  const r = await importOhmStaging(pool, { minYear, bbox });
   console.log(
     `OHM: imported ${r.imported}, skipped ${r.skippedDate} (bad date / no name), ${r.skippedLicense} (share-alike licence), ${r.skippedOld} (before MIN_YEAR)`,
   );

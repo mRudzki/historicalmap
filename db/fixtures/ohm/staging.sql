@@ -28,6 +28,6 @@ INSERT INTO ohm_stage.boundaries (osm_id, tags, geom) VALUES
 -- skipped: share-alike licence
 (7, '{"boundary":"administrative","admin_level":"2","name":"Share Alike Land","name:en":"Share Alike Land","start_date":"1000","license":"CC-BY-SA-4.0"}',
  ST_Multi(ST_GeomFromText('POLYGON((20 40,25 40,25 45,20 45,20 40))', 4326))),
--- filtered out by the Europe bbox (never counted)
+-- far away: kept with the default world bbox, dropped by a regional BBOX
 (8, '{"boundary":"administrative","admin_level":"2","name":"Far Realm","name:en":"Far Realm","start_date":"1000"}',
  ST_Multi(ST_GeomFromText('POLYGON((100 40,110 40,110 50,100 50,100 40))', 4326)));

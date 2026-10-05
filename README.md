@@ -1,6 +1,6 @@
-# History of Europe on a map
+# History of the world on a map
 
-Click a point on a map or globe of Europe and see which state or pre-state polity that place
+Click a point on a map or globe of the world and see which state or pre-state polity that place
 belonged to. A year slider colours every polity's borders differently, and clicking shows the
 history of that place over time.
 
@@ -33,6 +33,9 @@ snapshot-based database? Run `docker compose down -v` first and import again.
 
 By default Historical Basemaps snapshots from year 1 AD onwards are imported, and OpenHistoricalMap
 periods that ended before year 1 are dropped; set `MIN_YEAR` (e.g. `MIN_YEAR=-500`) to change both.
+Both importers cover the whole world by default; set `BBOX=west,south,east,north` (e.g.
+`BBOX=-25,34,45,72` for Europe) to limit them to a region. A feature is kept when it touches the
+box; its geometry is not cut to it.
 
 Ports: database `5433`, Martin `3100`, API `3001`, frontend `5174`
 (`VITE_API_URL` and `VITE_TILES_URL` override the frontend's backends).

@@ -43,15 +43,15 @@ describe('polity_color', () => {
 describe('polities_tile', () => {
   it('fallback holds HB, polities holds OHM level 2, regions holds OHM levels 3-4', async () => {
     const t = await tile(0, 0, 0, { year: '1060' });
-    expect(namesIn(t, 'fallback')).toEqual(['Kingdom A', 'Kingdom B', 'Unnamed territory']);
-    expect(namesIn(t, 'polities')).toEqual(['Licensed Land', 'Realm X']);
+    expect(namesIn(t, 'fallback')).toEqual(['Far Empire', 'Kingdom A', 'Kingdom B', 'Unnamed territory']);
+    expect(namesIn(t, 'polities')).toEqual(['Far Realm', 'Licensed Land', 'Realm X']);
     expect(namesIn(t, 'regions')).toEqual(['Region R']);
   });
 
   it('follows the year: OHM features appear and disappear at their dates', async () => {
-    expect(namesIn(await tile(0, 0, 0, { year: '1000' }), 'polities')).toEqual(['Licensed Land']);
+    expect(namesIn(await tile(0, 0, 0, { year: '1000' }), 'polities')).toEqual(['Far Realm', 'Licensed Land']);
     const later = await tile(0, 0, 0, { year: '1500' });
-    expect(namesIn(later, 'polities')).toEqual(['Licensed Land', 'Reich ohne Englisch']);
+    expect(namesIn(later, 'polities')).toEqual(['Far Realm', 'Licensed Land', 'Reich ohne Englisch']);
     expect(namesIn(later, 'regions')).toEqual([]);
     expect(namesIn(later, 'fallback')).toEqual(['Kingdom B', 'Kingdom B']);
   });

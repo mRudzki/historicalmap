@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import { EUROPE_BBOX } from './import-lib';
+import { WORLD_BBOX, type Bbox } from './import-lib';
 import { isShareAlike, parseOhmInterval } from './ohm-dates';
 
 export interface OhmImportResult {
@@ -32,10 +32,11 @@ SELECT p.id, 'ohm', $4::float8, $5::float8, keep.geom, simplify_polygons(keep.ge
 // Reloads only source='ohm', in one transaction.
 export async function importOhmStaging(
   pool: pg.Pool,
-  opts: { minYear?: number } = {},
+  opts: { minYear?: number; bbox?: Bbox } = {},
 ): Promise<OhmImportResult> {
   const minYear = opts.minYear ?? 1;
   if (!Number.isFinite(minYear)) throw new Error(`Invalid minYear: ${opts.minYear}`);
+  const bbox = opts.bbox ?? WORLD_BBOX;
 
   const { rows } = await pool.query(
     `SELECT osm_id::text AS osm_id, tags->>'admin_level' AS level, tags->>'name:en' AS name_en,
@@ -44,7 +45,7 @@ export async function importOhmStaging(
      FROM ohm_stage.boundaries
      WHERE ST_Intersects(geom, ST_MakeEnvelope($1::float8, $2::float8, $3::float8, $4::float8, 4326))
      ORDER BY osm_id`,
-    [EUROPE_BBOX.west, EUROPE_BBOX.south, EUROPE_BBOX.east, EUROPE_BBOX.north],
+    [bbox.west, bbox.south, bbox.east, bbox.north],
   );
 
   const result: OhmImportResult = { imported: 0, skippedDate: 0, skippedLicense: 0, skippedOld: 0 };

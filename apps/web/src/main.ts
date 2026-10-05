@@ -15,8 +15,8 @@ if (import.meta.env.PROD) {
 }
 
 const params = new URLSearchParams(location.search);
-const center: [number, number] = [Number(params.get('lng') ?? 12), Number(params.get('lat') ?? 50)];
-const zoom = Number(params.get('zoom') ?? 3);
+const center: [number, number] = [Number(params.get('lng') ?? 12), Number(params.get('lat') ?? 45)];
+const zoom = Number(params.get('zoom') ?? 2);
 
 const mapEl = document.getElementById('map') as HTMLElement;
 const panel = document.getElementById('panel') as HTMLElement;
@@ -131,14 +131,28 @@ let latestClick = 0; // ignore responses of clicks that were superseded
 let pinView: PinView = 'rewind';
 let syncMap = true; // show the map of the period's year in the background
 let rewind: Rewind | null = null;
-let playTimer: ReturnType<typeof setInterval> | undefined;
+let playTimer: ReturnType<typeof setTimeout> | undefined;
 let backgroundYear: number | null = null;
-const PLAY_MS = 1500;
+// A shown period needs its contour rendered and, in sync mode, a whole year of tiles fetched:
+// slow enough for the backend to keep up (the world data set is heavy).
+const PLAY_MS = 3000;
 
 const playing = () => playTimer !== undefined;
 function stopPlay(): void {
-  clearInterval(playTimer);
+  clearTimeout(playTimer);
   playTimer = undefined;
+}
+
+// Play: the pause restarts after each finished step (which may first wait for the next page to
+// load), so a slow backend delays the next period instead of skipping it on a fixed tick grid.
+function schedulePlay(): void {
+  playTimer = setTimeout(() => void stepPlay(), PLAY_MS);
+}
+async function stepPlay(): Promise<void> {
+  if (!rewind) return stopPlay();
+  if (!rewind.canOlder) { stopPlay(); renderRewind(); return; }
+  await rewind.older();
+  if (playing()) schedulePlay(); // paused while the page was loading
 }
 
 // Pin mode background: the map of the current period's year (rewind + sync), else neutral modern land.
@@ -205,11 +219,7 @@ const rewindHandlers = {
     if (playing()) {
       stopPlay();
     } else {
-      playTimer = setInterval(() => {
-        if (!rewind) return stopPlay();
-        if (!rewind.canOlder) { stopPlay(); renderRewind(); return; }
-        if (!rewind.loading) void rewind.older(); // while a page loads, wait for the next tick
-      }, PLAY_MS);
+      schedulePlay();
     }
     renderRewind();
   },

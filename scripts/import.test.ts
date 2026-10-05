@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { FIXTURE_DIR, clearAll, testPool } from '../db/test-support';
-import { UNNAMED, importDirectory, parseSnapshotYear } from './import-lib';
+import { UNNAMED, importDirectory, parseBbox, parseSnapshotYear } from './import-lib';
 import { importLand } from './import-land-lib';
 
 const pool = testPool();
@@ -19,16 +19,41 @@ describe('parseSnapshotYear', () => {
   });
 });
 
+describe('parseBbox', () => {
+  it('parses west,south,east,north', () => {
+    expect(parseBbox('-25,34,45,72')).toEqual({ west: -25, south: 34, east: 45, north: 72 });
+  });
+
+  it.each([
+    ['three numbers', '-25,34,45'],
+    ['not numbers', 'a,34,45,72'],
+    ['west not less than east', '45,34,-25,72'],
+    ['south not less than north', '-25,72,45,34'],
+    ['longitude out of range', '-181,34,45,72'],
+    ['latitude beyond the ±85 clip', '-25,-86,45,72'],
+  ])('rejects %s', (_label, text) => {
+    expect(() => parseBbox(text)).toThrow(/Invalid BBOX/);
+  });
+});
+
 describe('importDirectory', () => {
-  it('imports AD snapshots, keeps only Europe, maps null NAME to the sentinel', async () => {
+  it('imports AD snapshots from the whole world by default, maps null NAME to the sentinel', async () => {
     const result = await importDirectory(pool, FIXTURE_DIR);
-    expect(result).toEqual({ snapshots: 2, features: 5 });
+    expect(result).toEqual({ snapshots: 2, features: 6 });
 
     const names = await pool.query('SELECT name FROM polities ORDER BY name');
-    expect(names.rows.map((r) => r.name)).toEqual(['Kingdom A', 'Kingdom B', UNNAMED]);
+    expect(names.rows.map((r) => r.name)).toEqual(['Far Empire', 'Kingdom A', 'Kingdom B', UNNAMED]);
 
     const years = await pool.query('SELECT DISTINCT valid_from::int AS year FROM polity_geometries ORDER BY 1');
     expect(years.rows.map((r) => r.year)).toEqual([1000, 1100]);
+  });
+
+  it('honours bbox: features outside the box are dropped, geometries are not cut to it', async () => {
+    const result = await importDirectory(pool, FIXTURE_DIR, { bbox: parseBbox('-25,34,45,72') });
+    expect(result.features).toBe(5); // Far Empire (lon 100..110) is out
+
+    const far = await pool.query("SELECT 1 FROM polities WHERE name = 'Far Empire'");
+    expect(far.rowCount).toBe(0);
   });
 
   it('honours minYear and stores BC years as negatives', async () => {
@@ -42,7 +67,7 @@ describe('importDirectory', () => {
     await importDirectory(pool, FIXTURE_DIR);
     await importDirectory(pool, FIXTURE_DIR);
     const count = await pool.query('SELECT count(*)::int AS n FROM polity_geometries');
-    expect(count.rows[0].n).toBe(5);
+    expect(count.rows[0].n).toBe(6);
   });
 
   it('survives a self-intersecting (bowtie) polygon', async () => {
@@ -87,7 +112,7 @@ describe('importDirectory', () => {
     await expect(importDirectory(pool, empty)).rejects.toThrow(/no snapshot files/i);
     await expect(importDirectory(pool, FIXTURE_DIR, { minYear: Number.NaN })).rejects.toThrow(/minYear/);
     const count = await pool.query('SELECT count(*)::int AS n FROM polity_geometries');
-    expect(count.rows[0].n).toBe(5);
+    expect(count.rows[0].n).toBe(6);
   });
 
   it('stores each snapshot as an interval up to the next snapshot; the last one is open', async () => {
@@ -114,18 +139,19 @@ describe('importDirectory', () => {
                                  OR ST_NPoints(geom_lookup) > ST_NPoints(geom))::int AS bad
        FROM polity_geometries`,
     );
-    expect(r.rows[0]).toEqual({ n: 5, bad: 0 });
+    expect(r.rows[0]).toEqual({ n: 6, bad: 0 });
   });
 
   it('clips geometries to the land when land is loaded and drops polygons that are entirely at sea', async () => {
     await importLand(pool, path.join(FIXTURE_DIR, 'land', 'land.geojson'));
     const result = await importDirectory(pool, FIXTURE_DIR);
-    expect(result.features).toBe(4); // Unnamed territory (20..25) lies in the sea; the others keep a land part
+    expect(result.features).toBe(5); // Unnamed territory (20..25) lies in the sea; the others keep a land part
     const areas = await pool.query(
       `SELECT p.name, g.valid_from, round(ST_Area(g.geom)::numeric) AS area, round(ST_Area(g.geom_simple)::numeric) AS area_simple
        FROM polity_geometries g JOIN polities p ON p.id = g.polity_id ORDER BY g.valid_from, p.name, area`,
     );
     expect(areas.rows).toEqual([
+      { name: 'Far Empire', valid_from: 1000, area: '100', area_simple: '100' }, // its land box (lon 100..110)
       { name: 'Kingdom A', valid_from: 1000, area: '70', area_simple: '70' }, // 5*10 + 4*5
       { name: 'Kingdom B', valid_from: 1000, area: '20', area_simple: '20' }, // only lon 6..10 x lat 40..45
       { name: 'Kingdom B', valid_from: 1100, area: '10', area_simple: '10' }, // lon 8..10 x lat 40..45
@@ -152,6 +178,6 @@ describe('importDirectory', () => {
     await writeFile(path.join(dir, 'world_1500.geojson'), '{ not json');
     await expect(importDirectory(pool, dir)).rejects.toThrow();
     const count = await pool.query('SELECT count(*)::int AS n FROM polity_geometries');
-    expect(count.rows[0].n).toBe(5); // previous data untouched
+    expect(count.rows[0].n).toBe(6); // previous data untouched
   });
 });

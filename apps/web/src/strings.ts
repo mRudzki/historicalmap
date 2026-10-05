@@ -1,6 +1,6 @@
 // All user-facing text lives here (one place to change or translate).
 export const t = {
-  title: 'History of Europe on a map',
+  title: 'History of the world on a map',
   year: 'Year',
   pin: 'Pin',
   mode: 'Mode',

@@ -66,7 +66,7 @@ describe('clipExisting', () => {
   it('clips already imported geometries, refreshes the simplified copy and removes what lies at sea', async () => {
     await importDirectory(pool, FIXTURE_DIR); // imported without land: nothing is clipped yet
     const before = await pool.query('SELECT count(*)::int AS n FROM polity_geometries');
-    expect(before.rows[0].n).toBe(5);
+    expect(before.rows[0].n).toBe(6);
 
     await importLand(pool, LAND);
     const result = await clipExisting(pool);
@@ -77,6 +77,7 @@ describe('clipExisting', () => {
        FROM polity_geometries g JOIN polities p ON p.id = g.polity_id ORDER BY g.valid_from, p.name, area`,
     );
     expect(rows.rows).toEqual([
+      { name: 'Far Empire', valid_from: 1000, area: '100', area_simple: '100', area_lookup: '100' },
       { name: 'Kingdom A', valid_from: 1000, area: '70', area_simple: '70', area_lookup: '70' },
       { name: 'Kingdom B', valid_from: 1000, area: '20', area_simple: '20', area_lookup: '20' },
       { name: 'Kingdom B', valid_from: 1100, area: '10', area_simple: '10', area_lookup: '10' },
