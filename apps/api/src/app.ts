@@ -44,6 +44,10 @@ interface IntervalRow { name: string; color: string; source: 'ohm' | 'hb'; valid
 const intervals = (rows: IntervalRow[], source: 'ohm' | 'hb'): Interval[] =>
   rows.filter((r) => r.source === source).map((r) => ({ name: r.name, color: r.color, from: r.valid_from, to: r.valid_to }));
 
+// Below this the data is a handful of scattered polities (one starts at -3999), which would
+// stretch the year slider over millennia with almost nothing to show. ~100 CE is where it gets dense.
+const MIN_YEAR = 100;
+
 export function createApp(pool: pg.Pool): FastifyInstance {
   const app = Fastify();
   app.register(cors, { origin: true });
@@ -51,7 +55,7 @@ export function createApp(pool: pg.Pool): FastifyInstance {
   const range = async (): Promise<{ min: number | null; max: number | null }> => {
     const { rows } = await pool.query('SELECT floor(min(valid_from))::int AS min FROM polity_geometries');
     const min = rows[0].min as number | null;
-    return min === null ? { min: null, max: null } : { min, max: new Date().getFullYear() };
+    return min === null ? { min: null, max: null } : { min: Math.max(MIN_YEAR, min), max: new Date().getFullYear() };
   };
 
   app.get('/range', async () => range());

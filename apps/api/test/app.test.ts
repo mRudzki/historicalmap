@@ -146,6 +146,22 @@ describe('HB data only', () => {
     expect((await get('/at?lat=45&lon=2&year=1000')).statusCode).toBe(400);
     await seedFixture(pool);
   });
+
+  it('/range floors the minimum at 100 CE so the slider skips the empty millennia', async () => {
+    await clearAll(pool);
+    await pool.query("INSERT INTO polities (name, admin_level) VALUES ('Deep Past', 2)");
+    await pool.query(
+      `INSERT INTO polity_geometries (polity_id, source, valid_from, geom, geom_lookup)
+       SELECT p.id, 'hb', -3999, g, g FROM polities p,
+         LATERAL (SELECT ST_Multi(ST_GeomFromText('POLYGON((0 0,1 0,1 1,0 1,0 0))', 4326)) AS g) g
+       WHERE p.name = 'Deep Past'`,
+    );
+    expect((await get('/range')).json()).toEqual({ min: 100, max: thisYear });
+    expect((await get('/at?lat=0.5&lon=0.5&year=99')).statusCode).toBe(400);
+    expect((await get('/at?lat=0.5&lon=0.5&year=100')).statusCode).toBe(200);
+    await clearAll(pool);
+    await seedFixture(pool);
+  });
 });
 
 describe('point lookups use the light geometry', () => {
