@@ -18,6 +18,8 @@ check() { # <path> <expected content-type regex>
 }
 check /                                       'text/html'
 check /legal.html                             'text/html'
+check /robots.txt                             'text/plain'
+check /sitemap.xml                            'xml'
 check /maplibre/maplibre-gl-worker.mjs        'javascript'
 check /maplibre/maplibre-gl-shared.mjs        'javascript'
 exit $fail
